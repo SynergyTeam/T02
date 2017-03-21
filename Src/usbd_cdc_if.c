@@ -44,6 +44,11 @@
 /* Includes ------------------------------------------------------------------*/
 #include "usbd_cdc_if.h"
 /* USER CODE BEGIN INCLUDE */
+#include "cmsis_os.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "semphr.h"
 /* USER CODE END INCLUDE */
 
 /** @addtogroup STM32_USB_OTG_DEVICE_LIBRARY
@@ -59,6 +64,30 @@
   * @{
   */ 
 /* USER CODE BEGIN PRIVATE_TYPES */
+
+// описание блока данных
+typedef struct _bDescr {
+    uint8_t *pntr;
+    uint8_t size;
+} bDescr;
+
+//перечисление состояний интерфейса
+typedef enum _cdcState {
+    USBCDCD_STATE_IDLE = 0,
+    USBCDCD_STATE_UNCONFIGURED
+} cdcState;
+
+//структура интерфейса
+typedef struct _cdcApp {
+    SemaphoreHandle_t gateTx;               // мютекс доступа к функции записи
+    SemaphoreHandle_t semTx;
+    SemaphoreHandle_t gateRx;               // мютекс доступа к функции записи
+    QueueHandle_t queueRx;
+    uint8_t UserRxBufferFS[2][CDC_DATA_HS_OUT_PACKET_SIZE];
+    volatile uint8_t rxBufNum;              // номер буфера приема
+    volatile cdcState state;                // машина состояний
+} cdcApp;
+
 /* USER CODE END PRIVATE_TYPES */ 
 /**
   * @}
@@ -81,24 +110,18 @@
   * @{
   */ 
 /* USER CODE BEGIN PRIVATE_MACRO */
+
+#define Dim(x)                      (sizeof(x)/sizeof(*(x)))
+
 /* USER CODE END PRIVATE_MACRO */
 
-/**
-  * @}
-  */ 
-  
-/** @defgroup USBD_CDC_Private_Variables
-  * @{
-  */
-/* Create buffer for reception and transmission           */
-/* It's up to user to redefine and/or remove those define */
-/* Received Data over USB are stored in this buffer       */
-uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
-
-/* Send Data over USB CDC are stored in this buffer       */
-uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
-
 /* USER CODE BEGIN PRIVATE_VARIABLES */
+
+cdcApp appCDC = {
+        .state = USBCDCD_STATE_UNCONFIGURED,
+        .rxBufNum = 0,
+};
+
 /* USER CODE END PRIVATE_VARIABLES */
 
 /**
@@ -148,12 +171,18 @@ USBD_CDC_ItfTypeDef USBD_Interface_fops_FS =
   */
 static int8_t CDC_Init_FS(void)
 { 
-  /* USER CODE BEGIN 3 */ 
-  /* Set Application Buffers */
-  USBD_CDC_SetTxBuffer(&hUsbDeviceFS, UserTxBufferFS, 0);
-  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, UserRxBufferFS);
-  return (USBD_OK);
-  /* USER CODE END 3 */ 
+    /* USER CODE BEGIN 3 */
+    appCDC.gateTx = xSemaphoreCreateMutex();
+    appCDC.semTx = xSemaphoreCreateBinary();
+    appCDC.gateRx = xSemaphoreCreateMutex();
+    appCDC.queueRx = xQueueCreate(2, sizeof(bDescr));
+    appCDC.state = USBCDCD_STATE_IDLE;
+
+    /* Set Application Buffers */
+    USBD_CDC_SetTxBuffer(&hUsbDeviceFS, (uint8_t*)&appCDC, 0);
+    USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &appCDC.UserRxBufferFS[appCDC.rxBufNum][0]);
+    return (USBD_OK);
+    /* USER CODE END 3 */
 }
 
 /**
@@ -164,9 +193,15 @@ static int8_t CDC_Init_FS(void)
   */
 static int8_t CDC_DeInit_FS(void)
 {
-  /* USER CODE BEGIN 4 */ 
-  return (USBD_OK);
-  /* USER CODE END 4 */ 
+    /* USER CODE BEGIN 4 */
+    appCDC.state = USBCDCD_STATE_UNCONFIGURED;
+    vSemaphoreDelete(appCDC.gateTx);
+    vSemaphoreDelete(appCDC.semTx);
+    vSemaphoreDelete(appCDC.gateRx);
+    vQueueDelete(appCDC.queueRx);
+
+    return (USBD_OK);
+    /* USER CODE END 4 */
 }
 
 /**
@@ -260,15 +295,29 @@ static int8_t CDC_Control_FS  (uint8_t cmd, uint8_t* pbuf, uint16_t length)
   */
 static int8_t CDC_Receive_FS (uint8_t* Buf, uint32_t *Len)
 {
-  /* USER CODE BEGIN 6 */
-  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
-  USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-  return (USBD_OK);
-  /* USER CODE END 6 */ 
+    /* USER CODE BEGIN 6 */
+    if (appCDC.state == USBCDCD_STATE_IDLE) {
+        BaseType_t prTaskWoken = pdFALSE;
+        bDescr nData;
+
+        nData.pntr = Buf;
+        nData.size = (uint8_t)(*Len);
+        xQueueSendToBackFromISR(appCDC.queueRx, &nData, &prTaskWoken);
+        if (prTaskWoken == pdTRUE) {
+        }
+    }
+
+    //меняем буфер приема, продолжаем прием данных
+    if (++appCDC.rxBufNum >= Dim(appCDC.UserRxBufferFS))
+        appCDC.rxBufNum = 0;
+    USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &appCDC.UserRxBufferFS[appCDC.rxBufNum][0]);
+    USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+    return (USBD_OK);
+    /* USER CODE END 6 */
 }
 
 /**
-  * @brief  CDC_Transmit_FS
+  * @brief  CDC_Transmit_Data
   *         Data send over USB IN endpoint are sent over CDC interface 
   *         through this function.           
   *         @note
@@ -278,21 +327,96 @@ static int8_t CDC_Receive_FS (uint8_t* Buf, uint32_t *Len)
   * @param  Len: Number of data to be send (in bytes)
   * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL or USBD_BUSY
   */
-uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
+uint16_t CDC_Transmit_Data(uint8_t* Buf, uint16_t Len, uint32_t timeout)
 {
-  uint8_t result = USBD_OK;
-  /* USER CODE BEGIN 7 */ 
-  USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)hUsbDeviceFS.pClassData;
-  if (hcdc->TxState != 0){
-    return USBD_BUSY;
-  }
-  USBD_CDC_SetTxBuffer(&hUsbDeviceFS, Buf, Len);
-  result = USBD_CDC_TransmitPacket(&hUsbDeviceFS);
-  /* USER CODE END 7 */ 
-  return result;
+    /* USER CODE BEGIN 7 */
+    if (appCDC.state == USBCDCD_STATE_UNCONFIGURED)
+        return(0);
+    if (xSemaphoreTake(appCDC.gateTx, portMAX_DELAY)) {
+        /* Adjust the pointer to the data */
+        USBD_CDC_SetTxBuffer(&hUsbDeviceFS, (uint8_t*)Buf, Len);
+        if (USBD_CDC_TransmitPacket(&hUsbDeviceFS) != USBD_OK) {
+            Len = 0;
+        }
+        /* Pend until some data was sent through the USB */
+        if (xSemaphoreTake(appCDC.semTx, timeout) == pdFALSE) {
+            Len = 0;
+        }
+        xSemaphoreGive(appCDC.gateTx);
+        return (Len);
+    }
+    /* USER CODE END 7 */
+    return (0);
 }
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
+
+/**
+  * @brief  USBD_CDC_DataIn
+  *         Data sent on non-control IN endpoint
+  * @param  pdev: device instance
+  * @param  epnum: endpoint number
+  * @retval status
+  */
+uint8_t  USBD_CDC_DataIn (USBD_HandleTypeDef *pdev, uint8_t epnum) {
+    USBD_CDC_HandleTypeDef   *hcdc = (USBD_CDC_HandleTypeDef*) pdev->pClassData;
+    BaseType_t prTaskWoken = pdFALSE;
+
+    if(pdev->pClassData != NULL) {
+        hcdc->TxState = 0;
+        xSemaphoreGiveFromISR(appCDC.semTx, &prTaskWoken);
+        if (prTaskWoken == pdTRUE) {
+        }
+        return USBD_OK;
+    }
+    return USBD_FAIL;
+}
+
+/**
+  * @brief  CDC_Receive_FS
+  *         Data received over USB OUT endpoint are sent over CDC interface
+  *         through this function.
+  *
+  *         @note
+  *         This function will block any OUT packet reception on USB endpoint
+  *         untill exiting this function. If you exit this function before transfer
+  *         is complete on CDC interface (ie. using DMA controller) it will result
+  *         in receiving more data while previous ones are still not sent.
+  *
+  * @param  Buf: Buffer of data to be received
+  * @param  Len: Number of data received (in bytes)
+  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
+  */
+uint32_t CDC_Receive_Data (uint8_t* Buf, uint32_t Len, uint32_t timeout)
+{
+    /* USER CODE BEGIN 6 */
+    uint32_t rxLen, bSize, sTick;
+    bDescr rData;
+
+    if (appCDC.state == USBCDCD_STATE_UNCONFIGURED) {
+        osDelay(timeout);
+        return(0);
+    }
+    if (xSemaphoreTake(appCDC.gateRx, portMAX_DELAY)) {
+        rxLen = 0;
+        sTick = osKernelSysTick();
+        do {
+            if (xQueueReceive(appCDC.queueRx, &rData, timeout) == pdFALSE) {
+                break;
+            }
+            bSize = Len - rxLen;
+            if (bSize > rData.size)
+                bSize = rData.size;
+            memcpy(Buf + rxLen, rData.pntr, bSize);
+            rxLen += bSize;
+        } while ((osKernelSysTick() - sTick) < timeout);
+        xSemaphoreGive(appCDC.gateRx);
+        return (rxLen);
+    }
+    return (0);
+    /* USER CODE END 6 */
+}
+
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
 
 /**

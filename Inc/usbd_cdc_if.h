@@ -107,9 +107,12 @@ extern USBD_CDC_ItfTypeDef  USBD_Interface_fops_FS;
 /** @defgroup USBD_CDC_IF_Exported_FunctionsPrototype
   * @{
   */ 
-uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+extern uint16_t CDC_Transmit_Data(uint8_t* Buf, uint16_t Len, uint32_t timeout);
 
 /* USER CODE BEGIN EXPORTED_FUNCTIONS */
+
+extern uint32_t CDC_Receive_Data(uint8_t* Buf, uint32_t Len, uint32_t timeout);
+
 /* USER CODE END EXPORTED_FUNCTIONS */
 /**
   * @}

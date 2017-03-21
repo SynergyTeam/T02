@@ -54,7 +54,7 @@
 #define CDC_CMD_EP                                  0x82  /* EP2 for CDC commands */
 
 /* CDC Endpoints parameters: you can fine tune these values depending on the needed baudrates and performance. */
-#define CDC_DATA_HS_MAX_PACKET_SIZE                 512  /* Endpoint IN & OUT Packet size */
+#define CDC_DATA_HS_MAX_PACKET_SIZE                 64  /* Endpoint IN & OUT Packet size */
 #define CDC_DATA_FS_MAX_PACKET_SIZE                 64  /* Endpoint IN & OUT Packet size */
 #define CDC_CMD_PACKET_SIZE                         8  /* Control Endpoint Packet size */ 
 
@@ -112,14 +112,14 @@ typedef struct
 {
   uint32_t data[CDC_DATA_HS_MAX_PACKET_SIZE/4];      /* Force 32bits alignment */
   uint8_t  CmdOpCode;
-  uint8_t  CmdLength;    
-  uint8_t  *RxBuffer;  
-  uint8_t  *TxBuffer;   
+  uint8_t  CmdLength;
+  uint8_t  *RxBuffer;
+  uint8_t  *TxBuffer;
   uint32_t RxLength;
-  uint32_t TxLength;    
-  
-  __IO uint32_t TxState;     
-  __IO uint32_t RxState;    
+  uint32_t TxLength;                                 // число байт для передачи
+
+  __IO uint32_t TxState;
+  __IO uint32_t RxState;                             // XXX в данный момент не используется
 }
 USBD_CDC_HandleTypeDef; 
 

@@ -113,7 +113,7 @@ static uint8_t  USBD_CDC_DeInit (USBD_HandleTypeDef *pdev,
 static uint8_t  USBD_CDC_Setup (USBD_HandleTypeDef *pdev, 
                                 USBD_SetupReqTypedef *req);
 
-static uint8_t  USBD_CDC_DataIn (USBD_HandleTypeDef *pdev, 
+extern uint8_t  USBD_CDC_DataIn (USBD_HandleTypeDef *pdev,
                                  uint8_t epnum);
 
 static uint8_t  USBD_CDC_DataOut (USBD_HandleTypeDef *pdev, 
@@ -637,45 +637,20 @@ static uint8_t  USBD_CDC_Setup (USBD_HandleTypeDef *pdev,
 
   case USB_REQ_TYPE_STANDARD:
     switch (req->bRequest)
-    {      
+    {
     case USB_REQ_GET_INTERFACE :
-      USBD_CtlSendData (pdev,
-                        &ifalt,
-                        1);
-      break;
-      
+        USBD_CtlSendData (pdev, &ifalt, 1);
+        break;
+
     case USB_REQ_SET_INTERFACE :
-      break;
+        break;
     }
+    break;
  
   default: 
     break;
   }
   return USBD_OK;
-}
-
-/**
-  * @brief  USBD_CDC_DataIn
-  *         Data sent on non-control IN endpoint
-  * @param  pdev: device instance
-  * @param  epnum: endpoint number
-  * @retval status
-  */
-static uint8_t  USBD_CDC_DataIn (USBD_HandleTypeDef *pdev, uint8_t epnum)
-{
-  USBD_CDC_HandleTypeDef   *hcdc = (USBD_CDC_HandleTypeDef*) pdev->pClassData;
-  
-  if(pdev->pClassData != NULL)
-  {
-    
-    hcdc->TxState = 0;
-
-    return USBD_OK;
-  }
-  else
-  {
-    return USBD_FAIL;
-  }
 }
 
 /**
