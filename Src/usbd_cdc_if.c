@@ -97,10 +97,6 @@ typedef struct _cdcApp {
   * @{
   */ 
 /* USER CODE BEGIN PRIVATE_DEFINES */
-/* Define size for the receive and transmit buffer over CDC */
-/* It's up to user to redefine and/or remove those define */
-#define APP_RX_DATA_SIZE  4
-#define APP_TX_DATA_SIZE  4
 /* USER CODE END PRIVATE_DEFINES */
 /**
   * @}
@@ -115,6 +111,13 @@ typedef struct _cdcApp {
 
 /* USER CODE END PRIVATE_MACRO */
 
+/**
+  * @}
+  */
+
+/** @defgroup USBD_CDC_Private_Variables
+  * @{
+  */
 /* USER CODE BEGIN PRIVATE_VARIABLES */
 
 cdcApp appCDC = {
@@ -170,17 +173,12 @@ USBD_CDC_ItfTypeDef USBD_Interface_fops_FS =
   * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t CDC_Init_FS(void)
-{ 
+{
     /* USER CODE BEGIN 3 */
-    appCDC.gateTx = xSemaphoreCreateMutex();
-    appCDC.semTx = xSemaphoreCreateBinary();
-    appCDC.gateRx = xSemaphoreCreateMutex();
-    appCDC.queueRx = xQueueCreate(2, sizeof(bDescr));
-    appCDC.state = USBCDCD_STATE_IDLE;
-
     /* Set Application Buffers */
     USBD_CDC_SetTxBuffer(&hUsbDeviceFS, (uint8_t*)&appCDC, 0);
     USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &appCDC.UserRxBufferFS[appCDC.rxBufNum][0]);
+    appCDC.state = USBCDCD_STATE_IDLE;
     return (USBD_OK);
     /* USER CODE END 3 */
 }
@@ -195,11 +193,6 @@ static int8_t CDC_DeInit_FS(void)
 {
     /* USER CODE BEGIN 4 */
     appCDC.state = USBCDCD_STATE_UNCONFIGURED;
-    vSemaphoreDelete(appCDC.gateTx);
-    vSemaphoreDelete(appCDC.semTx);
-    vSemaphoreDelete(appCDC.gateRx);
-    vQueueDelete(appCDC.queueRx);
-
     return (USBD_OK);
     /* USER CODE END 4 */
 }
@@ -350,6 +343,28 @@ uint16_t CDC_Transmit_Data(uint8_t* Buf, uint16_t Len, uint32_t timeout)
 }
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
+
+/*------------------------------------------------------------------------------
+ * Инициализация мютексов, семафоров, очереди (вызов из задачи)
+ */
+void CDC_Init_App(void) {
+    appCDC.gateTx = xSemaphoreCreateMutex();
+    appCDC.semTx = xSemaphoreCreateBinary();
+    appCDC.gateRx = xSemaphoreCreateMutex();
+    appCDC.queueRx = xQueueCreate(2, sizeof(bDescr));
+    appCDC.state = USBCDCD_STATE_UNCONFIGURED;
+    appCDC.rxBufNum = 0;
+}
+
+/*------------------------------------------------------------------------------
+ * Освобождаем не требующиеся более ресурсы
+ */
+void CDC_DeInit_App(void) {
+    vSemaphoreDelete(appCDC.gateTx);
+    vSemaphoreDelete(appCDC.semTx);
+    vSemaphoreDelete(appCDC.gateRx);
+    vQueueDelete(appCDC.queueRx);
+}
 
 /**
   * @brief  USBD_CDC_DataIn

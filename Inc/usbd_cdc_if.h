@@ -111,6 +111,8 @@ extern uint16_t CDC_Transmit_Data(uint8_t* Buf, uint16_t Len, uint32_t timeout);
 
 /* USER CODE BEGIN EXPORTED_FUNCTIONS */
 
+extern void CDC_Init_App(void);
+extern void CDC_DeInit_App(void);
 extern uint32_t CDC_Receive_Data(uint8_t* Buf, uint32_t Len, uint32_t timeout);
 
 /* USER CODE END EXPORTED_FUNCTIONS */
