@@ -47,7 +47,8 @@
 #include "usb_device.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "console/console.h"
+#include "peripherals/inp_out.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -85,7 +86,6 @@ static void MX_I2C2_Init(void);
 static void MX_SPI4_Init(void);
 static void MX_CAN2_Init(void);
 static void MX_CAN1_Init(void);
-void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -139,13 +139,12 @@ int main(void)
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
-  /* Create the thread(s) */
-  /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
-
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  osThreadDef(mainTask, InputOutputTask, osPriorityHigh, 0, 768);
+  InpOutTaskHandle = osThreadCreate(osThread(mainTask), NULL);
+
+  osThreadDef(consoleTask, ConsoleTask, osPriorityBelowNormal, 0, 768);
+  ConsoleHandle = osThreadCreate(osThread(consoleTask), NULL);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -554,21 +553,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
-
-/* StartDefaultTask function */
-void StartDefaultTask(void const * argument)
-{
-  /* init code for USB_DEVICE */
-  MX_USB_DEVICE_Init();
-
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END 5 */ 
-}
 
 /**
   * @brief  This function is executed in case of error occurrence.
