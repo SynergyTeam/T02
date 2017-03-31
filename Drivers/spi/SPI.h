@@ -107,7 +107,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <stm32f4xx_hal_conf.h>
+#include <stm32f4xx_hal.h>
 #include <stm32f4xx_hal_spi.h>
 
 /*!
@@ -155,9 +155,19 @@ typedef void        (*SPI_CallbackFxn) (SPI_Handle handle,
  *  Definitions for various SPI modes of operation.
  */
 typedef enum SPI_Mode {
-    SPI_MASTER      = 0,                    /*!< SPI in master mode */
-    SPI_SLAVE       = 1                     /*!< SPI in slave mode */
+    SPI_MASTER      = SPI_MODE_MASTER,                          /*!< SPI in master mode */
+    SPI_SLAVE       = SPI_MODE_SLAVE                            /*!< SPI in slave mode */
 } SPI_Mode;
+
+/*!
+ *  @brief
+ *  Перечисление режимов работы сигнала CSn
+ */
+typedef enum SPI_NSS_Mode {
+    SPI_SOFT        = SPI_NSS_SOFT,
+    SPI_INPUT       = SPI_NSS_HARD_INPUT,
+    SPI_OUTPUT      = SPI_NSS_HARD_OUTPUT
+} SPI_NSS_Mode;
 
 /*!
  *  @brief
@@ -206,8 +216,10 @@ typedef struct SPI_Params {
     SPI_TransferMode    transferMode;       /*!< Blocking or Callback mode */
     SPI_CallbackFxn     transferCallbackFxn;/*!< Callback function pointer */
     SPI_Mode            mode;               /*!< Master or Slave mode */
+    SPI_NSS_Mode        nss;                /*!< Режим работы сигнала CSn */
     uint32_t            bitRate;            /*!< SPI bit rate in Hz */
     uint32_t            dataSize;           /*!< SPI data frame size in bits */
+    uint32_t            firstBit;           /*!< Порядок бит */
     SPI_FrameFormat     frameFormat;        /*!< SPI frame format */
 } SPI_Params;
 

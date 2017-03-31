@@ -31,6 +31,8 @@
  */
 
 #include <stdint.h>
+#include "stm32f4xx_hal.h"
+#include <Drivers/driver_logs.h>
 #include <Drivers/spi/SPITivaDMA.h>
 
 #include "FreeRTOS.h"
@@ -52,7 +54,7 @@
  * If it returns 0; we're using a SSI controller
  * else, we're using a Bi-/Quad-SSI peripheral
  */
-//#define SSIMODE(baseAddr) HWREG(baseAddr + SSI_O_PP) & (SSI_PP_MODE_M)
+//#define SSIMODE(Instance) HWREG(Instance + SSI_O_PP) & (SSI_PP_MODE_M)
 
 /* SPITiva functions */
 void         SPITivaDMA_close(SPI_Handle handle);
@@ -124,16 +126,28 @@ void SPITivaDMA_close(SPI_Handle handle)
     SPITivaDMA_Object          *object = handle->object;
     SPITivaDMA_HWAttrs const   *hwAttrs = handle->hwAttrs;
 
-    MAP_SSIDisable(hwAttrs->baseAddr);
+    __HAL_SPI_DISABLE(hwAttrs);
+
+    /* De-Initialize the DMA associated to transmission process */
+    HAL_DMA_DeInit(object->hdmatx);
+    vPortFree(object->hdmatx);
+
+    /* De-Initialize the DMA associated to reception process */
+    HAL_DMA_DeInit(object->hdmarx);
+    vPortFree(object->hdmarx);
 
     /* Destroy the Hwi */
-    MAP_IntDisable(hwAttrs->intNum);
-//    IntUnregister(hwAttrs->intNum);                                           //TODO
+    /*##-4- Disable the NVIC for DMA #########################################*/
+    HAL_NVIC_DisableIRQ(hwAttrs->uDMA_txInt);
+    HAL_NVIC_DisableIRQ(hwAttrs->uDMA_rxInt);
+
+    /*##-5- Disable the NVIC for SPI #########################################*/
+    HAL_NVIC_DisableIRQ(hwAttrs->intNum);
 
     /* Destroy the semaphore */
     vSemaphoreDelete(object->transferComplete);
 
-    Log_print1(Diags_USER1, "SPI:(%p) closed", hwAttrs->baseAddr);
+    Log_print1(Diags_USER1, "SPI:(%p) closed", hwAttrs->Instance);
 
     object->isOpen = false;
 }
@@ -163,10 +177,6 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
     SPITivaDMA_Object         *object = handle->object;
     SPITivaDMA_HWAttrs const  *hwAttrs = handle->hwAttrs;
 
-    /* Clear out the FIFO */
-    while (MAP_SSIDataGetNonBlocking(hwAttrs->baseAddr, &dummy)) {
-    }
-
     if (transaction->txBuf) {
         channelControlOptions = dmaTxConfig[object->frameSize];
         buf = transaction->txBuf;
@@ -177,16 +187,16 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
         buf = hwAttrs->scratchBufPtr;
     }
 
-    /* Setup the TX transfer characteristics */
-    MAP_uDMAChannelControlSet(hwAttrs->txChannelIndex | UDMA_PRI_SELECT,
-                              channelControlOptions);
-
-    /* Setup the TX transfer buffers */
-    MAP_uDMAChannelTransferSet(hwAttrs->txChannelIndex | UDMA_PRI_SELECT,
-                               UDMA_MODE_BASIC,
-                               buf,
-                               (void *)(hwAttrs->baseAddr + SSI_O_DR),
-                               transaction->count);
+//    /* Setup the TX transfer characteristics */
+//    MAP_uDMAChannelControlSet(hwAttrs->txChannelIndex | UDMA_PRI_SELECT,
+//                              channelControlOptions);
+//
+//    /* Setup the TX transfer buffers */
+//    MAP_uDMAChannelTransferSet(hwAttrs->txChannelIndex | UDMA_PRI_SELECT,
+//                               UDMA_MODE_BASIC,
+//                               buf,
+//                               (void *)(hwAttrs->Instance + SSI_O_DR),
+//                               transaction->count);
 
     if (transaction->rxBuf) {
         channelControlOptions = dmaRxConfig[object->frameSize];
@@ -197,44 +207,44 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
         buf = hwAttrs->scratchBufPtr;
     }
 
-    /* Setup the RX transfer characteristics */
-    MAP_uDMAChannelControlSet(hwAttrs->rxChannelIndex | UDMA_PRI_SELECT,
-                              channelControlOptions);
+//    /* Setup the RX transfer characteristics */
+//    MAP_uDMAChannelControlSet(hwAttrs->rxChannelIndex | UDMA_PRI_SELECT,
+//                              channelControlOptions);
+//
+//    /* Setup the RX transfer buffers */
+//    MAP_uDMAChannelTransferSet(hwAttrs->rxChannelIndex | UDMA_PRI_SELECT,
+//                               UDMA_MODE_BASIC,
+//                               (void *)(hwAttrs->Instance + SSI_O_DR),
+//                               buf,
+//                               transaction->count);
 
-    /* Setup the RX transfer buffers */
-    MAP_uDMAChannelTransferSet(hwAttrs->rxChannelIndex | UDMA_PRI_SELECT,
-                               UDMA_MODE_BASIC,
-                               (void *)(hwAttrs->baseAddr + SSI_O_DR),
-                               buf,
-                               transaction->count);
-
-    Log_print1(Diags_USER1,"SPI:(%p) DMA transfer enabled", hwAttrs->baseAddr);
+    Log_print1(Diags_USER1,"SPI:(%p) DMA transfer enabled", hwAttrs->Instance);
 
     Log_print5(Diags_USER2,"SPI:(%p) DMA transaction: %p, "
                            "rxBuf: %p; txBuf: %p; Count: %d",
-                            hwAttrs->baseAddr,
+                            hwAttrs->Instance,
                             (UArg)transaction,
                             (UArg)transaction->rxBuf,
                             (UArg)transaction->txBuf,
                             (UArg)transaction->count);
 
-    /* A lock is needed because we are accessing shared uDMA registers.*/
-    MAP_IntDisable(hwAttrs->intNum);
+//    /* A lock is needed because we are accessing shared uDMA registers.*/
+//    MAP_IntDisable(hwAttrs->intNum);
 
     /* Configure channel mapping */
     hwAttrs->channelMappingFxn(hwAttrs->txChannelMappingFxnArg);
     hwAttrs->channelMappingFxn(hwAttrs->rxChannelMappingFxnArg);
 
-    /* Enable DMA Channels */
-    MAP_uDMAChannelEnable(hwAttrs->txChannelIndex);
-    MAP_uDMAChannelEnable(hwAttrs->rxChannelIndex);
-
-    if (SSIMODE(hwAttrs->baseAddr)) {
-        MAP_SSIIntClear(hwAttrs->baseAddr, SSI_DMATX | SSI_DMARX);
-        MAP_SSIIntEnable(hwAttrs->baseAddr, SSI_DMATX | SSI_DMARX);
-    }
-
-    MAP_IntEnable(hwAttrs->intNum);
+//    /* Enable DMA Channels */
+//    MAP_uDMAChannelEnable(hwAttrs->txChannelIndex);
+//    MAP_uDMAChannelEnable(hwAttrs->rxChannelIndex);
+//
+//    if (SSIMODE(hwAttrs->Instance)) {
+//        MAP_SSIIntClear(hwAttrs->Instance, SSI_DMATX | SSI_DMARX);
+//        MAP_SSIIntEnable(hwAttrs->Instance, SSI_DMATX | SSI_DMARX);
+//    }
+//
+//    MAP_IntEnable(hwAttrs->intNum);
     return (true);
 }
 
@@ -248,25 +258,21 @@ void SPITivaDMA_hwiFxn(uint32_t arg)
     SPITivaDMA_Object         *object = ((SPI_Handle)arg)->object;
     SPITivaDMA_HWAttrs const  *hwAttrs = ((SPI_Handle)arg)->hwAttrs;
 
-    Log_print1(Diags_USER2, "SPI:(%p) interrupt context start", hwAttrs->baseAddr);
+    Log_print1(Diags_USER2, "SPI:(%p) interrupt context start", hwAttrs->Instance);
 
-#if !defined(MWARE)
-    if (SSIMODE(hwAttrs->baseAddr)) {
-        /* We know that at least the Tx channel triggered the interrupt */
-        MAP_SSIIntDisable(hwAttrs->baseAddr, SSI_DMATX);
-    }
-#endif
+//    if (SSIMODE(hwAttrs->Instance)) {
+//        /* We know that at least the Tx channel triggered the interrupt */
+//        MAP_SSIIntDisable(hwAttrs->Instance, SSI_DMATX);
+//    }
 
     /* Determine if the TX and RX DMA channels have completed */
-    if ((object->transaction) &&
-        (MAP_uDMAChannelIsEnabled(hwAttrs->rxChannelIndex) == false)) {
+    if ((object->transaction) /*&&
+        (MAP_uDMAChannelIsEnabled(hwAttrs->rxChannelIndex) == false)*/) {
 
-#if !defined(MWARE)
-        if (SSIMODE(hwAttrs->baseAddr)) {
-            /* Now we know that the Rx channel may have triggered the interrupt */
-            MAP_SSIIntDisable(hwAttrs->baseAddr, SSI_DMARX);
-        }
-#endif
+//        if (SSIMODE(hwAttrs->Instance)) {
+//            /* Now we know that the Rx channel may have triggered the interrupt */
+//            MAP_SSIIntDisable(hwAttrs->Instance, SSI_DMARX);
+//        }
 
         /*
          * Use a temporary transaction pointer in case the callback function
@@ -278,14 +284,14 @@ void SPITivaDMA_hwiFxn(uint32_t arg)
         object->transaction = NULL;
 
         Log_print2(Diags_USER1,"SPI:(%p) DMA transaction: %p complete",
-                                hwAttrs->baseAddr, (UArg)msg);
+                                hwAttrs->Instance, (UArg)msg);
 
         /* Perform callback */
         object->transferCallbackFxn((SPI_Handle)arg, msg);
     }
 
     Log_print1(Diags_USER2, "SPI:(%p) interrupt context end",
-                             hwAttrs->baseAddr);
+                             hwAttrs->Instance);
 }
 
 /*
@@ -308,9 +314,7 @@ SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock
     SPITivaDMA_HWAttrs const  *hwAttrs = handle->hwAttrs;
 
     /* Determine if the device index was already opened */
-    MAP_IntDisable(hwAttrs->intNum);
     if (object->isOpen == true) {
-        MAP_IntEnable(hwAttrs->intNum);
         return (NULL);
     }
 
@@ -323,24 +327,14 @@ SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock
         params = (SPI_Params *) &SPI_defaultParams;
     }
 
-    Assert_isTrue((params->dataSize >= 4) &&
-                  (params->dataSize <= 16), NULL);
+    assert_param((params->dataSize >= 4) && (params->dataSize <= 16));          //FIXME
 
     /* Determine if we need to use an 8-bit or 16-bit framesize for the DMA */
     object->frameSize = (params->dataSize < 9) ? SPITivaDMA_8bit : SPITivaDMA_16bit;
 
     Log_print2(Diags_USER2,"SPI:(%p) DMA buffer incrementation size: %s",
-                            hwAttrs->baseAddr,
+                            hwAttrs->Instance,
                            (object->frameSize) ? (UArg)"16-bit" : (UArg)"8-bit");
-
-    MAP_SSIIntDisable(hwAttrs->baseAddr, SSI_RXOR | SSI_RXFF | SSI_RXTO | SSI_TXFF);
-    if (SSIMODE(hwAttrs->baseAddr)) {
-        MAP_SSIIntDisable(hwAttrs->baseAddr, SSI_DMATX | SSI_DMARX);
-    }
-
-    /* Create the Hwi for this SPI peripheral */
-    MAP_IntEnable(hwAttrs->intNum);
-//    IntRegister(hwAttrs->intNum, void (*pfnHandler)(void));                   //TODO
 
     /* Store the current mode */
     object->transferMode = params->transferMode;
@@ -352,36 +346,92 @@ SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock
     object->transferComplete = xSemaphoreCreateBinary();
 
     if (object->transferMode == SPI_MODE_BLOCKING) {
-        Log_print1(Diags_USER2, "SPI:(%p) in SPI_MODE_BLOCKING mode", hwAttrs->baseAddr);
+        Log_print1(Diags_USER2, "SPI:(%p) in SPI_MODE_BLOCKING mode", hwAttrs->Instance);
         /* Store internal callback function */
         object->transferCallbackFxn = SPITivaDMA_transferCallback;
     }
     else {
-        Log_print1(Diags_USER2, "SPI:(%p) in SPI_MODE_CALLBACK mode", hwAttrs->baseAddr);
+        Log_print1(Diags_USER2, "SPI:(%p) in SPI_MODE_CALLBACK mode", hwAttrs->Instance);
 
         /* Check to see if a callback function was defined for async mode */
-        Assert_isTrue(params->transferCallbackFxn != NULL, NULL);
+        assert_param(params->transferCallbackFxn != NULL);
 
         /* Save the callback function pointer */
         object->transferCallbackFxn = params->transferCallbackFxn;
     }
 
-    /* Set the SPI configuration */
-    MAP_SSIConfigSetExpClk(hwAttrs->baseAddr,
-                           clock,
-                           params->frameFormat,
-                           params->mode,
-                           params->bitRate,
-                           params->dataSize);
+    /* Disable the selected SPI peripheral */
+    __HAL_SPI_DISABLE(hwAttrs);
+
+    /* SPIx CR1 & CR2 Configuration */
+    /* Configure : SPI Mode, Communication Mode, Data size, Clock polarity and phase, NSS management,
+    Communication speed, First bit and CRC calculation state */
+    WRITE_REG(hwAttrs->Instance->CR1, (params->mode | SPI_DIRECTION_2LINES | params->dataSize |
+                                       params->frameFormat | (params->nss & SPI_CR1_SSM) |
+                                       params->bitRate | params->firstBit  | SPI_CRCCALCULATION_DISABLE) );
+
+    /* Configure : NSS management */
+    WRITE_REG(hwAttrs->Instance->CR2, (((params->nss >> 16U) & SPI_CR2_SSOE) | SPI_TIMODE_DISABLE));
+
+    /* Activate the SPI mode (Make sure that I2SMOD bit in I2SCFGR register is reset) */
+    CLEAR_BIT(hwAttrs->Instance->I2SCFGR, SPI_I2SCFGR_I2SMOD);
 
     Log_print3(Diags_USER1, "SPI:(%p) CPU freq: %d; SPI freq to %d",
-                             hwAttrs->baseAddr, freq.lo, params->bitRate);
+                             hwAttrs->Instance, freq.lo, params->bitRate);
 
-    MAP_SSIDMAEnable(hwAttrs->baseAddr, SSI_DMA_TX | SSI_DMA_RX);
+    object->hdmatx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
+    /* Configure the DMA handler for Transmission process */
+    object->hdmatx->Instance                 = hwAttrs->tx_uDMA_stream;
+    object->hdmatx->Init.Channel             = hwAttrs->txChannelIndex;
+    object->hdmatx->Init.FIFOMode            = DMA_FIFOMODE_DISABLE;
+    object->hdmatx->Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    object->hdmatx->Init.MemBurst            = DMA_MBURST_INC4;
+    object->hdmatx->Init.PeriphBurst         = DMA_PBURST_INC4;
+    object->hdmatx->Init.Direction           = DMA_MEMORY_TO_PERIPH;
+    object->hdmatx->Init.PeriphInc           = DMA_PINC_DISABLE;
+    object->hdmatx->Init.MemInc              = DMA_MINC_ENABLE;
+    object->hdmatx->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    object->hdmatx->Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
+    object->hdmatx->Init.Mode                = DMA_NORMAL;
+    object->hdmatx->Init.Priority            = DMA_PRIORITY_LOW;
+    HAL_DMA_Init(object->hdmatx);
 
-    MAP_SSIEnable(hwAttrs->baseAddr);
+    object->hdmarx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
+    /* Configure the DMA handler for Transmission process */
+    object->hdmarx->Instance                 = hwAttrs->rx_uDMA_stream;;
+    object->hdmarx->Init.Channel             = hwAttrs->rxChannelIndex;;
+    object->hdmarx->Init.FIFOMode            = DMA_FIFOMODE_DISABLE;
+    object->hdmarx->Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    object->hdmarx->Init.MemBurst            = DMA_MBURST_INC4;
+    object->hdmarx->Init.PeriphBurst         = DMA_PBURST_INC4;
+    object->hdmarx->Init.Direction           = DMA_PERIPH_TO_MEMORY;
+    object->hdmarx->Init.PeriphInc           = DMA_PINC_DISABLE;
+    object->hdmarx->Init.MemInc              = DMA_MINC_ENABLE;
+    object->hdmarx->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    object->hdmarx->Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
+    object->hdmarx->Init.Mode                = DMA_NORMAL;
+    object->hdmarx->Init.Priority            = DMA_PRIORITY_HIGH;
+    HAL_DMA_Init(object->hdmarx);
 
-    Log_print1(Diags_USER1, "SPI:(%p) opened", hwAttrs->baseAddr);
+    /*##-3- Configure the NVIC for SPI #######################################*/
+    /* NVIC for SPI */
+    HAL_NVIC_SetPriority(hwAttrs->intNum, 1, 0);
+    HAL_NVIC_EnableIRQ(hwAttrs->intNum);
+
+    /*##-4- Configure the NVIC for DMA #######################################*/
+    /* NVIC configuration for DMA transfer complete interrupt (SPI2_TX) */
+    HAL_NVIC_SetPriority(hwAttrs->uDMA_txInt, 1, 1);
+    HAL_NVIC_EnableIRQ(hwAttrs->uDMA_txInt);
+
+    /* NVIC configuration for DMA transfer complete interrupt (SPI2_RX) */
+    HAL_NVIC_SetPriority(hwAttrs->uDMA_rxInt, 1, 0);
+    HAL_NVIC_EnableIRQ(hwAttrs->uDMA_rxInt);
+
+    /*##-5- Configure the NVIC for SPI #######################################*/
+    HAL_NVIC_SetPriority(hwAttrs->intNum, 1, 2);
+    HAL_NVIC_EnableIRQ(hwAttrs->intNum);
+
+    Log_print1(Diags_USER1, "SPI:(%p) opened", hwAttrs->Instance);
 
     return (handle);
 }
@@ -392,7 +442,7 @@ SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock
 void SPITivaDMA_serviceISR(SPI_Handle handle)
 {
     /* Function is not supported */
-    Assert_isTrue(handle != NULL, NULL);
+    assert_param(handle != NULL);
     SPITivaDMA_hwiFxn((uint32_t)handle);
 }
 
@@ -414,8 +464,8 @@ bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
 
     /* Make sure that the buffers are aligned properly */
     if (object->frameSize == SPITivaDMA_16bit) {
-        Assert_isTrue(!((uint32_t)transaction->txBuf & 0x1), NULL);
-        Assert_isTrue(!((uint32_t)transaction->rxBuf & 0x1), NULL);
+        assert_param(!((uint32_t)transaction->txBuf & 0x1));
+        assert_param(!((uint32_t)transaction->rxBuf & 0x1));
     }
 
     /* Check if a transfer is in progress */
@@ -424,7 +474,7 @@ bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
         MAP_IntEnable(hwattrs->intNum);
 
         Log_error1("SPI:(%p) transaction still in progress",
-                   hwattrs->baseAddr);
+                   hwattrs->Instance);
 
         /* Transfer is in progress */
         return (false);
@@ -440,7 +490,7 @@ bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
     if (object->transferMode == SPI_MODE_BLOCKING) {
         Log_print1(Diags_USER1,
                    "SPI:(%p) transfer pending on transferComplete semaphore",
-                    hwattrs->baseAddr);
+                    hwattrs->Instance);
         xSemaphoreTake(object->transferComplete, portMAX_DELAY);
     }
 
@@ -457,7 +507,7 @@ bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
 void SPITivaDMA_transferCancel(SPI_Handle handle)
 {
 	/* No implementation yet */
-    Assert_isTrue(false, NULL);
+    assert_param(false);
 }
 
 /*
@@ -469,12 +519,12 @@ void SPITivaDMA_transferCancel(SPI_Handle handle)
 static void SPITivaDMA_transferCallback(SPI_Handle handle,
                                         SPI_Transaction *transaction)
 {
-    SPITivaDMA_Object         *object = handle->object;
+    SPITivaDMA_Object *object = handle->object;
+    BaseType_t TaskWoken = pdFALSE;
 
     Log_print1(Diags_USER1, "SPI:(%p) posting transferComplete semaphore",
-                ((SPITivaDMA_HWAttrs const *)(handle->hwAttrs))->baseAddr);
+                ((SPITivaDMA_HWAttrs const *)(handle->hwAttrs))->Instance);
 
-    object->h_pr_TaskWoken = pdFALSE;
-    xSemaphoreGiveFromISR(object->transferComplete, &object->h_pr_TaskWoken);
+     xSemaphoreGiveFromISR(object->transferComplete, &TaskWoken);
 }
 

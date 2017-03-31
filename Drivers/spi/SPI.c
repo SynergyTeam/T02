@@ -48,12 +48,14 @@ static uint32_t cpuClock;
 
 /* Default SPI parameters structure */
 const SPI_Params SPI_defaultParams = {
-    SPI_MODE_BLOCKING,  /* transferMode */
-    NULL,               /* transferCallbackFxn */
-    SPI_MASTER,         /* mode */
-    1000000,            /* bitRate */
-    8,                  /* dataSize */
-    SPI_POL0_PHA0       /* frameFormat */
+    SPI_MODE_BLOCKING,          /* transferMode */
+    NULL,                       /* transferCallbackFxn */
+    SPI_MASTER,                 /* mode */
+    SPI_OUTPUT,
+    SPI_BAUDRATEPRESCALER_32,   /* bitRate */
+    8,                          /* dataSize */
+    SPI_FIRSTBIT_MSB,
+    SPI_POL0_PHA0               /* frameFormat */
 };
 
 /*

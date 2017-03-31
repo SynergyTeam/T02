@@ -125,12 +125,10 @@ extern "C" {
 #include "semphr.h"
 #include <Drivers/spi/SPI.h>
 
-//#include <ti/sysbios/family/arm/m3/Hwi.h>
 
 /* Return codes for SPI_control() */
 #define SPITivaDMA_CMD_UNDEFINED    -1
 
-typedef uint32_t            SPIBaseAddrType;
 typedef uint32_t            SPIDataType;
 
 /* SPI function table pointer */
@@ -188,18 +186,28 @@ typedef enum SPITivaDMA_FrameSize {
  */
 typedef struct SPITivaDMA_HWAttrs {
     /*! SSI Peripheral's base address */
-    SPIBaseAddrType   baseAddr;
+    SPI_TypeDef         *Instance;
     /*! SSI TivaDMA Peripheral's interrupt vector */
-    unsigned int      intNum;
+    unsigned int        intNum;
 
     /*! Address of a scratch buffer of size uint32_t */
-    uint32_t         *scratchBufPtr;
+    uint32_t            *scratchBufPtr;
     /*! Default TX value if txBuf == NULL */
-    uint32_t          defaultTxBufValue;
+    uint32_t            defaultTxBufValue;
+
+    /* Номер потока передачи uDMA */
+    DMA_Stream_TypeDef  *tx_uDMA_stream;
+    /*! Номер канала передачи uDMA */
+    uint32_t            txChannelIndex;
+    /*! Вектор uDMA прерывания канала передачи */
+    uint32_t            uDMA_txInt;
+
+    /* Номер потока приема uDMA */
+    DMA_Stream_TypeDef  *rx_uDMA_stream;
     /*! uDMA controlTable channel index */
-    uint32_t          rxChannelIndex;
-    /*! uDMA controlTable channel index */
-    uint32_t          txChannelIndex;
+    uint32_t            rxChannelIndex;
+    /*! uDMA вектор прерывания канала приема */
+    uint32_t            uDMA_rxInt;
 
     /*! uDMA mapping function that maps the SPI trigger to the DMA channel */
     void  (*channelMappingFxn)(SPIDataType);
@@ -215,18 +223,20 @@ typedef struct SPITivaDMA_HWAttrs {
  *  The application must not access any member variables of this structure!
  */
 typedef struct SPITivaDMA_Object {
-    SemaphoreHandle_t     transferComplete;   /* Notify finished SPITivaDMA transfer */
+    SemaphoreHandle_t     transferComplete;     /* Notify finished SPITivaDMA transfer */
 
-    SPI_TransferMode      transferMode;       /* SPITivaDMA transfer mode */
-    SPI_CallbackFxn       transferCallbackFxn;/* Callback fxn in CALLBACK mode */
+    SPI_TransferMode      transferMode;         /* SPITivaDMA transfer mode */
+    SPI_CallbackFxn       transferCallbackFxn;  /* Callback fxn in CALLBACK mode */
 
-    SPI_Transaction      *transaction;        /* void * to the current transaction*/
+    SPI_Transaction      *transaction;          /* void * to the current transaction */
 
-    SPITivaDMA_FrameSize  frameSize;   /* Data frame size variable */
+    SPITivaDMA_FrameSize  frameSize;            /* Data frame size variable */
 
-    bool                  isOpen;      /* flag to indicate module is open */
-    // FreeRTOS object
-    signed portBASE_TYPE  h_pr_TaskWoken;
+    DMA_HandleTypeDef    *hdmatx;               /* SPI Tx DMA Handle parameters */
+
+    DMA_HandleTypeDef    *hdmarx;               /* SPI Rx DMA Handle parameters */
+
+    bool                  isOpen;               /* flag to indicate module is open */
 } SPITivaDMA_Object, *SPITivaDMA_Handle;
 
 #ifdef __cplusplus

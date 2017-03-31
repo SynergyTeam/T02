@@ -8,14 +8,14 @@
 #include "config.h"
 #include "struct.h"
 #include "settings.h"
-#include "cpu_resource/watchdog.h"
-#include "cpu_resource/spi_bus.h"
+//#include "cpu_resource/watchdog.h"
+//#include "cpu_resource/spi_bus.h"
 #include "sflash/archive.h"
-#include "sflash/queue_mng.h"
-#include "communication/protocol_descr.h"
-#include "navigation/navigation.h"
-#include "dataoperation.h"
-#include "time_app.h"
+//#include "sflash/queue_mng.h"
+//#include "communication/protocol_descr.h"
+//#include "navigation/navigation.h"
+//#include "dataoperation.h"
+//#include "time_app.h"
 #include "console/console.h"
 
 //стандартные размеры пакетов хран€щийс€ в архиве
@@ -110,11 +110,10 @@ char ArchiveGetBorder(char *percent, uint32_t *bData) {
 // ¬ыполн€етс€ разметка архива, стирание архива и выставл€етс€ флаг сохранени€ настроек
 void ArchiveSetBorder(sys_config *cfg) {
 	uint32_t fSize, aN;
-    IArg AKey[MAX_ARCHIVES];
 
 	//вычисление полного объема пам€ти
 	for (fSize = 0, aN = 0; aN < MAX_ARCHIVES; ++aN) {
-        AKey[aN] = QUEUE_LOCK(aN);                                              //блокируем операции с очередью
+        QUEUE_LOCK(aN);                                                         //блокируем операции с очередью
 		if(Archive[aN].memory.end > fSize)
 			fSize = Archive[aN].memory.end;
 	}
@@ -128,7 +127,7 @@ void ArchiveSetBorder(sys_config *cfg) {
     for(aN = 0; aN < MAX_ARCHIVES; ++aN) {
         Archive[aN].bData = LGD.ptrArchive[aN];
         LGD.ptrArchive[aN] = ArchiveClean(aN);
-        QUEUE_UNLOCK(aN, AKey[aN]);                                             //разрешаем операции с оччередью
+        QUEUE_UNLOCK(aN);                                                       //разрешаем операции с оччередью
     }
 }
 
@@ -222,9 +221,8 @@ static uint32_t checking_sequence(uint16_t *PacketNum, archive_str *arch, char *
 uint32_t ArchiveClean(char aNum) {
 	archive_str *volatile str;													//временные переменные
 	uint32_t space;
-    IArg gateKey;
 
-    gateKey = QUEUE_LOCK(aNum);
+    QUEUE_LOCK(aNum);
     str = &Archive[aNum];
     space = ArchiveGetInfo(aNum, FULL_SIZE);
     if (space > 0) {
@@ -234,7 +232,7 @@ uint32_t ArchiveClean(char aNum) {
         str->packets = str->pLen = 0;
         Events.StoreNavData = 1;												//выставл€ем флаг сохранени€ настроек
     }
-    QUEUE_UNLOCK(aNum, gateKey);
+    QUEUE_UNLOCK(aNum);
     return str->bData;
 }
 /*------------------------------------------------------------------------------
@@ -514,7 +512,7 @@ int ArchiveTxtInfo(char anum, char *msg) {
 
 	str = &Archive[anum];
 	len = usprintf(msg, "\r\nARCHIVE #%d\r\nQUEUE:\r\n", 1 + anum);
-	len += usprintf(msg + len, "PACKETS:%d\r\n", Queue[anum].size);
+//FIXME	len += usprintf(msg + len, "PACKETS:%d\r\n", Queue[anum].size);
 	len += usprintf(msg + len, "FLASH:\r\nADR:0x%06X-0x%06X\r\n",str->memory.start,str->memory.end);
 	len += usprintf(msg + len, "USE:0x%06X-0x%06X\r\n", str->bData, str->lData);
 	len += usprintf(msg + len, "PACKETS:%d\r\n", str->packets);

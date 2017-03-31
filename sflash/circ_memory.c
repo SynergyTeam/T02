@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <stm32f4xx_hal_conf.h>
+#include "stm32f4xx_hal.h"
 
 #include "ext_memory.h"
 #include "circ_memory.h"
