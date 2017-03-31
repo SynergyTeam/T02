@@ -4,16 +4,17 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
-#include <xdc/std.h>
-#include <xdc/runtime/System.h>
+//#include <xdc/std.h>
+//#include <xdc/runtime/System.h>
 
-#include <ti/sysbios/BIOS.h>
-#include <ti/sysbios/gates/GateMutex.h>
-#include <ti/drivers/SPI.h>
-#include <ti/drivers/spi/SPITivaDMA.h>
+//#include <ti/sysbios/BIOS.h>
+//#include <ti/sysbios/gates/GateMutex.h>
 
-#include "cpu_resource/hardware.h"
-#include "cpu_resource/spi_bus.h"
+#include <Drivers/spi/SPI.h>
+#include <Drivers/spi/SPITivaDMA.h>
+
+//#include "cpu_resource/hardware.h"
+//#include "cpu_resource/spi_bus.h"
 #include "ext_memory.h"
 
 //------------------------------------------------------------------------------
@@ -25,14 +26,14 @@
 #define BUS_MODE                    (0x40)
 
 //макросы доступа
-#define MEMORY_LOCK                 (GateMutex_enter(GateMutex_handle(&Flash.gate)))
-#define MEMORY_UNLOCK(key)          (GateMutex_leave(GateMutex_handle(&Flash.gate), key))
+#define MEMORY_LOCK                 (xSemaphoreTake(Flash.gate, portMAX_DELAY))
+#define MEMORY_UNLOCK               (xSemaphoreGive(Flash.gate))
 
 //структура данных драйвера памяти
 typedef struct {
     SPI_Handle          handle;         // SPI шина
     SPI_Transaction     ssi;            // описение текущей транзакции
-    GateMutex_Struct    gate;           // mutex доступа
+    SemaphoreHandle_t   gate;           // mutex доступа
     uint8_t             cmdbuf[5];      // буфер команды
     uint8_t             *rdData;        // указатель на буфер чтения данных
     uint8_t             *wrData;        // указатель на буфер записи данных
@@ -59,7 +60,7 @@ void flash_state_maсhine(SPI_Handle handle, SPI_Transaction *transaction) {
     uint16_t len;
 
     if (Flash.size == NULL) {
-        Semaphore_post(Semaphore_handle(&(object->transferComplete)));
+        xSemaphoreGive(object->transferComplete);
     }
     else {
         object->transaction = transaction;
@@ -86,7 +87,7 @@ void flash_state_maсhine(SPI_Handle handle, SPI_Transaction *transaction) {
 uint32_t flash_init(uint32_t *rsize) {
 	SPI_Params      memory;														//используемые переменные
 
-	GateMutex_construct(&Flash.gate, NULL);
+    Flash.gate = xSemaphoreCreateRecursiveMutex();
 	SPI_Params_init(&memory);													//начальные значения
 	memory.frameFormat = SPI_POL1_PHA1;											//режим шины
 	memory.bitRate = 25000000;													//скорость шины
@@ -114,7 +115,7 @@ static void wr_enable(t_FlTrans *flash) {
     flash->size = 0;
 
     SPI_transfer(flash->handle, &flash->ssi);
-    Semaphore_pend(Semaphore_handle(&(((SPITivaDMA_Object*)flash->handle->object)->transferComplete)), BIOS_WAIT_FOREVER);
+    xSemaphoreTake(&(((SPITivaDMA_Object*)flash->handle->object)->transferComplete), portMAX_DELAY);
 }
 //------------------------------------------------------------------------------
 //Выяснение размера и типа используемой памяти (flash)
@@ -130,7 +131,7 @@ static uint32_t flash_info(t_FlTrans *flash) {
     flash->size = 0;
 
     SPI_transfer(flash->handle, &flash->ssi);
-    Semaphore_pend(Semaphore_handle(&(((SPITivaDMA_Object*)flash->handle->object)->transferComplete)), BIOS_WAIT_FOREVER);
+    xSemaphoreTake(((SPITivaDMA_Object*)flash->handle->object)->transferComplete, portMAX_DELAY);
 
 
     /* Проверка типа поддерживаемой памяти:
@@ -163,7 +164,7 @@ static uint8_t flash_ready(t_FlTrans *flash) {
     flash->size = 0;
     do {
         SPI_transfer(flash->handle, &flash->ssi);
-        Semaphore_pend(Semaphore_handle(&(((SPITivaDMA_Object*)flash->handle->object)->transferComplete)), BIOS_WAIT_FOREVER);
+        xSemaphoreTake(((SPITivaDMA_Object*)flash->handle->object)->transferComplete, portMAX_DELAY);
         flash->size = 0;
     } while (flash->cmdbuf[3] & WIP_bit);
 
@@ -173,9 +174,8 @@ static uint8_t flash_ready(t_FlTrans *flash) {
  * Cтирание сектора данных с адреса addr
  */
 uint32_t flash_sect_erase(uint32_t addr) {
-	IArg gKey;
 
-	gKey = MEMORY_LOCK;
+	MEMORY_LOCK;
     flash_ready(&Flash);                                                        //ждем готовности
     wr_enable(&Flash);                                                          //разрешаем запись
 
@@ -192,8 +192,8 @@ uint32_t flash_sect_erase(uint32_t addr) {
 
 	// Initiate SPI transfer
     SPI_transfer(Flash.handle, &Flash.ssi);
-    Semaphore_pend(Semaphore_handle(&(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete)), BIOS_WAIT_FOREVER);
-	MEMORY_UNLOCK(gKey);
+    xSemaphoreTake(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete, portMAX_DELAY);
+	MEMORY_UNLOCK;
 	return addr;
 }
 
@@ -202,9 +202,7 @@ uint32_t flash_sect_erase(uint32_t addr) {
  * В реальности, из-за времени выполнения команды (50 сек), используется стирание секторов
  */
 void flash_erase(void) {
-	IArg gateKey;
-
-	gateKey = MEMORY_LOCK;														//блокируем доступ к ресурсу
+	MEMORY_LOCK;														        //блокируем доступ к ресурсу
     flash_ready(&Flash);                                                        //ждем готовности
     wr_enable(&Flash);                                                          //разрешаем запись
 
@@ -216,18 +214,16 @@ void flash_erase(void) {
 
     // Initiate SPI transfer
     SPI_transfer(Flash.handle, &Flash.ssi);
-    Semaphore_pend(Semaphore_handle(&(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete)), BIOS_WAIT_FOREVER);
-	MEMORY_UNLOCK(gateKey);
+    xSemaphoreTake(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete, portMAX_DELAY);
+	MEMORY_UNLOCK;
 }
 /*------------------------------------------------------------------------------
  * Чтение данных из внешний памяти с адреса Adr в буфер *data размером len байт
  * Возращает число считанных байт или код ошибки (число  < 0)
  */
 int flash_read(uint8_t *data, uint32_t Adr, int len) {
-    IArg gateKey;
-
     if (len <= 0) return (0);
-    gateKey = MEMORY_LOCK;
+    MEMORY_LOCK;
     flash_ready(&Flash);                                                        //ожидание готовности
 
     // команда
@@ -244,17 +240,17 @@ int flash_read(uint8_t *data, uint32_t Adr, int len) {
     Flash.size = len;
 
     // транзакция
-    MAP_GPIOPinTypeGPIOOutput(GPIO_PORTH_BASE, MR_CS);
-    MAP_GPIOPinWrite(GPIO_PORTH_BASE, MR_CS, 0);
+//    MAP_GPIOPinTypeGPIOOutput(GPIO_PORTH_BASE, MR_CS);
+//    MAP_GPIOPinWrite(GPIO_PORTH_BASE, MR_CS, 0);
 
     // Initiate SPI transfer
     SPI_transfer(Flash.handle, &Flash.ssi);
-    Semaphore_pend(Semaphore_handle(&(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete)), BIOS_WAIT_FOREVER);
+    xSemaphoreTake(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete, portMAX_DELAY);
 
-    MAP_GPIOPinConfigure(GPIO_PH5_SSI2FSS);
-    MAP_GPIOPinTypeSSI(GPIO_PORTH_BASE, MR_CS);
+//    MAP_GPIOPinConfigure(GPIO_PH5_SSI2FSS);
+//    MAP_GPIOPinTypeSSI(GPIO_PORTH_BASE, MR_CS);
 
-    MEMORY_UNLOCK(gateKey);
+    MEMORY_UNLOCK;
     return (len);
 }
 
@@ -265,14 +261,12 @@ int flash_read(uint8_t *data, uint32_t Adr, int len) {
  */
 int flash_write(uint8_t *data, uint32_t Adr, int len) {
 	uint32_t blockSize, wrlen;
-	IArg gateKey;
-
 	if(len <= 0) return (0);
-    gateKey = MEMORY_LOCK;														//блокируем доступ к ресурсу
+    MEMORY_LOCK;														        //блокируем доступ к ресурсу
     wrlen = len;
 
 	do {
-		if((Adr & FLASH_BLOCK_MASK) == NULL) {									//стираем сектор
+		if((Adr & FLASH_BLOCK_MASK) == 0x0000) {								//стираем сектор
 			flash_sect_erase(Adr);
 		}
         flash_ready(&Flash);                                                    //ждем готовности
@@ -296,22 +290,22 @@ int flash_write(uint8_t *data, uint32_t Adr, int len) {
         Flash.size = blockSize;
 
         // команда
-        MAP_GPIOPinTypeGPIOOutput(GPIO_PORTH_BASE, MR_CS);
-        MAP_GPIOPinWrite(GPIO_PORTH_BASE, MR_CS, 0);
+//        MAP_GPIOPinTypeGPIOOutput(GPIO_PORTH_BASE, MR_CS);
+//        MAP_GPIOPinWrite(GPIO_PORTH_BASE, MR_CS, 0);
 
         // Initiate SPI transfer
         SPI_transfer(Flash.handle, &Flash.ssi);
-        Semaphore_pend(Semaphore_handle(&(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete)), BIOS_WAIT_FOREVER);
+        xSemaphoreTake(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete, portMAX_DELAY);
 
-        MAP_GPIOPinConfigure(GPIO_PH5_SSI2FSS);
-        MAP_GPIOPinTypeSSI(GPIO_PORTH_BASE, MR_CS);
+//        MAP_GPIOPinConfigure(GPIO_PH5_SSI2FSS);
+//        MAP_GPIOPinTypeSSI(GPIO_PORTH_BASE, MR_CS);
 
         Adr += blockSize;
         data += blockSize;
         len -= blockSize;
 	} while (len > 0);
 
-    MEMORY_UNLOCK(gateKey);														//восстанавливаем доступ к ресурсу
+    MEMORY_UNLOCK;														        //восстанавливаем доступ к ресурсу
 	return (wrlen);
 }
 
@@ -322,10 +316,9 @@ int flash_write(uint8_t *data, uint32_t Adr, int len) {
  */
 void flash_copy(uint32_t addr2, uint32_t addr1, int size) {
 	uint32_t blen = 0x200;
-	IArg gateKey;
 	uint8_t *mbuf;
 
-	gateKey = MEMORY_LOCK;														//блокируем доступ к ресурсу
+	MEMORY_LOCK;														        //блокируем доступ к ресурсу
 	mbuf = malloc(blen);
 	while (size > 0) {
 		if(size < blen) blen = size;
@@ -336,6 +329,6 @@ void flash_copy(uint32_t addr2, uint32_t addr1, int size) {
 		size -= blen;
 	}
 	free(mbuf);
-	MEMORY_UNLOCK(gateKey);														//восстанавливаем доступ к ресурсу
+	MEMORY_UNLOCK;														        //восстанавливаем доступ к ресурсу
 }
 

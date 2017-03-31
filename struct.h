@@ -175,7 +175,7 @@ typedef struct {
     char            RCV_vdop;
 
     uint8_t         NAV_gz_relation;        // номер выхода
-    struct geoid    NAV_geo_zona[10];
+//    struct geoid    NAV_geo_zona[10];
     char            NAV_start_motion;
     char            NAV_null_speed;
     char            NAV_max_speed;
@@ -261,7 +261,6 @@ typedef struct {
 
     uint8_t         BAT_modem_off;          //порог отключения модема
     uint8_t         PWR_battery_chr;        //порог отключения зарядки встроенного аккумулятора
-    uint8_t         BAT_modem_off;          //порог отключения модема
     uint8_t         PWR_suspend_mode;       //порог перехода в режим пониженного энергопотребления
     unsigned        NAV_2D_solution:1;
     unsigned        NAV_true_position:1;

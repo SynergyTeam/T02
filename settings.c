@@ -59,7 +59,7 @@ char ReadSettings(nav_solution *nSolution) {
     cfg = (sys_config*)malloc(sizeof(sys_config));
     // Инициализация заводскими настройками (без расчета CRC)
     memset(lgd, 0, sizeof(*lgd));
-    lgd->prvSolution.time = FW_time;
+//FIXME    lgd->prvSolution.time = FW_time;
     memcpy(lgd->name, lPnt_str, sizeof(lPnt_str)-1);
     // Поиск последнего сохраненного состояния
     AdrA = GetPrvPoint(lgd, GeoidAdrA);
@@ -207,7 +207,7 @@ static uint32_t GetPrvPoint(last_state *lgd, uint32_t Adr) {
 			if(check_lst_struct(rgd) == sett_ok) {
 				ptr += sizeof(*lgd);
                 nAdr = shift_in_circ_buf(&sett, Adr, (ptr - mBuf));             //абсолютный адрес в памяти
-                if(rgd->prvSolution.time.RTC_Year != 2080)                      //защита от 80-го года
+                if(rgd->prvSolution.time.tm_year != 2080)                       //защита от 80-го года
                     if(CalcDeltaTime(&rgd->prvSolution.time, &lgd->prvSolution.time) >= 0) {
                         memmove(lgd, rgd, sizeof(*lgd));
                         rAdr = nAdr;
@@ -338,7 +338,7 @@ static void DefaultCFGx01(sys_config *cfg) {
     cfg->BT_Name[0] = '\0';                                                     //BT-имя не задано
     cfg->BT_Addr[0] = '\0';                                                     //BT-адрес не задан
     cfg->M_auto_answer  = 0;                                                    //автоответ выключен по умолчанию
-    cfg->M_voice_interface = VOICE_BUILDIN_HW;                                  //Встроенная аппаратура
+//FIXME    cfg->M_voice_interface = VOICE_BUILDIN_HW;                                  //Встроенная аппаратура
     cfg->UINP_cfg = 0x36;                                                       //UINP1,2: 0-40V, без подтяжки. UINP3,4: 0-40V, без подтяжки
     cfg->UINP_work_mode = 0x1111;                                               //UINP1-4 аналоговые
 //    cfg->DINP_pull_up = 1;
@@ -383,7 +383,7 @@ static void DefaultCFGx01(sys_config *cfg) {
     cfg->SlowMotionThld = 4;
 #endif
     cfg->PWR_battery_chr = 60;                                                  //порог заряда аккумулятора
-    cfg->BAT_modem_off = (BATTERY_POOR_LEVEL - 0.1) * 10;
+//FIXME    cfg->BAT_modem_off = (BATTERY_POOR_LEVEL - 0.1) * 10;
 
     cfg->DVC_console_echo = 0;
 #ifdef HIBERNATE
