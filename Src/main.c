@@ -81,7 +81,6 @@ static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USART6_UART_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_SPI5_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI4_Init(void);
 static void MX_CAN2_Init(void);
@@ -117,7 +116,6 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USART6_UART_Init();
   MX_ADC1_Init();
-  MX_SPI5_Init();
   MX_I2C2_Init();
   MX_SPI4_Init();
 //  MX_CAN2_Init();
@@ -350,29 +348,6 @@ static void MX_SPI4_Init(void)
   hspi4.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi4.Init.CRCPolynomial = 10;
   if (HAL_SPI_Init(&hspi4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-}
-
-/* SPI5 init function */
-static void MX_SPI5_Init(void)
-{
-
-  hspi5.Instance = SPI5;
-  hspi5.Init.Mode = SPI_MODE_MASTER;
-  hspi5.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi5.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi5.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi5.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi5.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi5.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi5.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi5.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi5.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi5.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi5) != HAL_OK)
   {
     Error_Handler();
   }

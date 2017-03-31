@@ -31,8 +31,7 @@
 
 //структура данных драйвера памяти
 typedef struct {
-    SPI_Handle          handle;         // SPI шина
-    SPI_Transaction     ssi;            // описение текущей транзакции
+    SPI_HandleTypeDef*  handle;         // SPI шина
     SemaphoreHandle_t   gate;           // mutex доступа
     uint8_t             cmdbuf[5];      // буфер команды
     uint8_t             *rdData;        // указатель на буфер чтения данных
@@ -85,9 +84,30 @@ void flash_state_maсhine(SPI_Handle handle, SPI_Transaction *transaction) {
  * Возвращает размер памяти
  */
 uint32_t flash_init(uint32_t *rsize) {
-	SPI_Params      memory;														//используемые переменные
 
+    Flash.handle = pvPortMalloc(sizeof(SPI_HandleTypeDef));
+    Flash.handle->hdmatx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
+    Flash.handle->hdmatx->Parent = Flash.handle;
+    Flash.handle->hdmarx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
+    Flash.handle->hdmarx->Parent = Flash.handle;
     Flash.gate = xSemaphoreCreateRecursiveMutex();
+
+    Flash.handle->Instance = SPI5;
+    Flash.handle->Init.Mode = SPI_MODE_MASTER;
+    Flash.handle->Init.Direction = SPI_DIRECTION_2LINES;
+    Flash.handle->Init.DataSize = SPI_DATASIZE_8BIT;
+    Flash.handle->Init.CLKPolarity = SPI_POLARITY_LOW;
+    Flash.handle->Init.CLKPhase = SPI_PHASE_1EDGE;
+    Flash.handle->Init.NSS = SPI_NSS_HARD_OUTPUT;
+    Flash.handle->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+    Flash.handle->Init.FirstBit = SPI_FIRSTBIT_MSB;
+    Flash.handle->Init.TIMode = SPI_TIMODE_DISABLE;
+    Flash.handle->Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+    Flash.handle->Init.CRCPolynomial = 10;
+    if (HAL_SPI_Init(Flash.handle) != HAL_OK) {
+        Error_Handler();
+    }
+
 	SPI_Params_init(&memory);													//начальные значения
 	memory.frameFormat = SPI_POL1_PHA1;											//режим шины
 	memory.bitRate = 25000000;													//скорость шины
