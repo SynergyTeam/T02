@@ -48,5 +48,6 @@ extern int      flash_write(uint8_t *buf, uint32_t adr, int len);
 extern uint32_t flash_sect_erase(uint32_t addr);
 extern void     flash_erase(void);
 extern void     flash_copy(uint32_t buff, uint32_t addr, int size);
+extern void     flash_state_machine_callback(void);
 
 #endif /* __S_MEMORY__ */

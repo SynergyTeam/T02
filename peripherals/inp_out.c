@@ -9,6 +9,7 @@
 #include "usb_device.h"
 #include "peripherals/inp_out.h"
 #include "console/console.h"
+#include "sflash/ext_memory.h"
 
 //переменные
 osThreadId InpOutTaskHandle;
@@ -18,10 +19,13 @@ osThreadId InpOutTaskHandle;
  * ќсуществл€етс€ инициализаци€, обработка входов/выходов, подсчет архива и пр.
  */
 void InputOutputTask(void const * argument) {
+    uint32_t flash_size;
+
     MX_USB_DEVICE_Init();
 
     osDelay(3000);
     ConsoleMes("Device starting...\r\n");
+    flash_init(&flash_size);
 
     for(;;)
     {

@@ -11,6 +11,8 @@
 #include "stm32f4xx_hal.h"
 #include "hardware.h"
 
+extern void flash_callback(void);
+
 /**
   * @brief SPI MSP Initialization
   *        This function configures the hardware resources used in this example:
@@ -176,5 +178,14 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef *hspi) {
         /*##-5- Disable the NVIC for SPI #####################################*/
         HAL_NVIC_DisableIRQ(FLASH_IRQn);
     }
+}
+
+
+void HAL_SPI_TxHalfCpltCallback(SPI_HandleTypeDef *hspi) {
+    flash_state_machine_callback();
+}
+
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
+    flash_state_machine_callback();
 }
 

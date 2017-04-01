@@ -4,19 +4,12 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
-//#include <xdc/std.h>
-//#include <xdc/runtime/System.h>
-
-//#include <ti/sysbios/BIOS.h>
-//#include <ti/sysbios/gates/GateMutex.h>
-
-#include <Drivers/spi/SPI.h>
-#include <Drivers/spi/SPITivaDMA.h>
-
-//#include "cpu_resource/hardware.h"
-//#include "cpu_resource/spi_bus.h"
+#include "stm32f4xx_hal.h"
+#include "cmsis_os.h"
+#include "hardware.h"
 #include "ext_memory.h"
 
+extern void Error_Handler(void);
 //------------------------------------------------------------------------------
 //Поддерживаемые производители
 #define MACRONIX                    (0xC2)
@@ -33,6 +26,7 @@
 typedef struct {
     SPI_HandleTypeDef*  handle;         // SPI шина
     SemaphoreHandle_t   gate;           // mutex доступа
+    SemaphoreHandle_t   done;           // семафор завершения операции
     uint8_t             cmdbuf[5];      // буфер команды
     uint8_t             *rdData;        // указатель на буфер чтения данных
     uint8_t             *wrData;        // указатель на буфер записи данных
@@ -54,27 +48,25 @@ static uint32_t flash_info(t_FlTrans *flash);
  * Вызывается из драйвера после окончания транзакции на шине
  * В первой транзакции передается команда, в последующих осуществляется обмен данными
  */
-void flash_state_maсhine(SPI_Handle handle, SPI_Transaction *transaction) {
-    SPITivaDMA_Object *object = handle->object;
-    uint16_t len;
+void flash_state_machine_callback(void) {
+    BaseType_t flashWake = pdFALSE;
 
-    if (Flash.size == NULL) {
-        xSemaphoreGive(object->transferComplete);
+    if (Flash.size == 0) {
+        xSemaphoreGiveFromISR(Flash.done, &flashWake);
     }
     else {
-        object->transaction = transaction;
-        len = (Flash.size > 1024) ? 1024 : Flash.size;
-        transaction->count = len;
-        if (Flash.wrData != NULL) {
-            transaction->txBuf = Flash.wrData;
-            Flash.wrData += len;
-        }
         if (Flash.rdData != NULL) {
-            transaction->rxBuf = Flash.rdData;
-            Flash.rdData += len;
+            HAL_SPI_TransmitReceive_DMA(Flash.handle, Flash.rdData, Flash.rdData, Flash.size);
+            Flash.rdData = NULL;
         }
-        Flash.size -= len;
-        SPI_DMA_transfer(Flash.handle, transaction);
+        else {
+            if (Flash.wrData != NULL) {
+                HAL_SPI_Transmit_DMA(Flash.handle, Flash.wrData, Flash.size);
+                Flash.wrData = NULL;
+            }
+        }
+
+        Flash.size = 0;
     }
 }
 
@@ -91,6 +83,7 @@ uint32_t flash_init(uint32_t *rsize) {
     Flash.handle->hdmarx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
     Flash.handle->hdmarx->Parent = Flash.handle;
     Flash.gate = xSemaphoreCreateRecursiveMutex();
+    Flash.done = xSemaphoreCreateBinary();
 
     Flash.handle->Instance = SPI5;
     Flash.handle->Init.Mode = SPI_MODE_MASTER;
@@ -106,21 +99,11 @@ uint32_t flash_init(uint32_t *rsize) {
     Flash.handle->Init.CRCPolynomial = 10;
     if (HAL_SPI_Init(Flash.handle) != HAL_OK) {
         Error_Handler();
+//        System_abort("Can't open Flash bus!");
     }
+    *rsize = flash_info(&Flash);
 
-	SPI_Params_init(&memory);													//начальные значения
-	memory.frameFormat = SPI_POL1_PHA1;											//режим шины
-	memory.bitRate = 25000000;													//скорость шины
-    memory.transferMode = SPI_MODE_CALLBACK;
-    memory.transferCallbackFxn = flash_state_maсhine;
-
-    Flash.handle = SPI_open(ssi_FLASH, &memory);
-    if (Flash.handle == NULL) {
-        System_abort("Can't open Flash bus!");
-    }
-	*rsize = flash_info(&Flash);
-
-	return (*rsize);
+    return (*rsize);
 }
 
 //------------------------------------------------------------------------------
@@ -128,14 +111,11 @@ uint32_t flash_init(uint32_t *rsize) {
 static void wr_enable(t_FlTrans *flash) {
     // команда
     flash->cmdbuf[0] = WREN;
-    flash->ssi.txBuf = flash->cmdbuf;
-    flash->ssi.rxBuf = NULL;
-    flash->ssi.count = 1;
     // ответ
     flash->size = 0;
 
-    SPI_transfer(flash->handle, &flash->ssi);
-    xSemaphoreTake(&(((SPITivaDMA_Object*)flash->handle->object)->transferComplete), portMAX_DELAY);
+    HAL_SPI_Transmit_DMA(flash->handle, flash->cmdbuf, 1);
+    xSemaphoreTake(flash->done, portMAX_DELAY);
 }
 //------------------------------------------------------------------------------
 //Выяснение размера и типа используемой памяти (flash)
@@ -144,14 +124,11 @@ static uint32_t flash_info(t_FlTrans *flash) {
 
     // команда
     flash->cmdbuf[0] = JEDEC_Code;
-    flash->ssi.txBuf = flash->cmdbuf;
-    flash->ssi.rxBuf = flash->cmdbuf;
-    flash->ssi.count = 4;
     // ответ
     flash->size = 0;
 
-    SPI_transfer(flash->handle, &flash->ssi);
-    xSemaphoreTake(((SPITivaDMA_Object*)flash->handle->object)->transferComplete, portMAX_DELAY);
+    HAL_SPI_TransmitReceive_DMA(flash->handle, flash->cmdbuf, flash->cmdbuf, 4);
+    xSemaphoreTake(flash->done, portMAX_DELAY);
 
 
     /* Проверка типа поддерживаемой памяти:
@@ -177,15 +154,10 @@ static uint32_t flash_info(t_FlTrans *flash) {
 static uint8_t flash_ready(t_FlTrans *flash) {
     // команда
     flash->cmdbuf[0] = RDSR;
-    flash->ssi.txBuf = &flash->cmdbuf[0];
-    flash->ssi.rxBuf = &flash->cmdbuf[2];
-    flash->ssi.count = 2;
-    // ответ
-    flash->size = 0;
     do {
-        SPI_transfer(flash->handle, &flash->ssi);
-        xSemaphoreTake(((SPITivaDMA_Object*)flash->handle->object)->transferComplete, portMAX_DELAY);
         flash->size = 0;
+        HAL_SPI_TransmitReceive_DMA(flash->handle, &flash->cmdbuf[0], &flash->cmdbuf[2], 2);
+        xSemaphoreTake(flash->done, portMAX_DELAY);
     } while (flash->cmdbuf[3] & WIP_bit);
 
     return (flash->cmdbuf[3]);
@@ -205,14 +177,12 @@ uint32_t flash_sect_erase(uint32_t addr) {
     Flash.cmdbuf[1] = addr >> 16;
     Flash.cmdbuf[2] = addr >> 8;
     Flash.cmdbuf[3] = addr;
-    Flash.ssi.txBuf = Flash.cmdbuf;
-    Flash.ssi.rxBuf = NULL;
-    Flash.ssi.count = 4;
+    // ответ
     Flash.size = 0;
 
 	// Initiate SPI transfer
-    SPI_transfer(Flash.handle, &Flash.ssi);
-    xSemaphoreTake(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete, portMAX_DELAY);
+    HAL_SPI_Transmit_DMA(Flash.handle, Flash.cmdbuf, 4);
+    xSemaphoreTake(Flash.done, portMAX_DELAY);
 	MEMORY_UNLOCK;
 	return addr;
 }
@@ -227,14 +197,11 @@ void flash_erase(void) {
     wr_enable(&Flash);                                                          //разрешаем запись
 
     Flash.cmdbuf[0] = ChipErase;
-    Flash.ssi.txBuf = Flash.cmdbuf;
-    Flash.ssi.rxBuf = NULL;
-    Flash.ssi.count = 1;
     Flash.size = 0;
 
     // Initiate SPI transfer
-    SPI_transfer(Flash.handle, &Flash.ssi);
-    xSemaphoreTake(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete, portMAX_DELAY);
+    HAL_SPI_Transmit_DMA(Flash.handle, Flash.cmdbuf, 1);
+    xSemaphoreTake(Flash.done, portMAX_DELAY);
 	MEMORY_UNLOCK;
 }
 /*------------------------------------------------------------------------------
@@ -242,6 +209,8 @@ void flash_erase(void) {
  * Возращает число считанных байт или код ошибки (число  < 0)
  */
 int flash_read(uint8_t *data, uint32_t Adr, int len) {
+    GPIO_InitTypeDef GPIO_InitStruct;
+
     if (len <= 0) return (0);
     MEMORY_LOCK;
     flash_ready(&Flash);                                                        //ожидание готовности
@@ -251,24 +220,29 @@ int flash_read(uint8_t *data, uint32_t Adr, int len) {
     Flash.cmdbuf[1] = (uint8_t)(Adr >> 16);
     Flash.cmdbuf[2] = (uint8_t)(Adr >> 8);
     Flash.cmdbuf[3] = (uint8_t)Adr;
-    Flash.ssi.txBuf = Flash.cmdbuf;
-    Flash.ssi.rxBuf = NULL;
-    Flash.ssi.count = 4;
     // чтение данных
     Flash.wrData = NULL;
     Flash.rdData = (uint8_t*)data;
     Flash.size = len;
 
     // транзакция
-//    MAP_GPIOPinTypeGPIOOutput(GPIO_PORTH_BASE, MR_CS);
-//    MAP_GPIOPinWrite(GPIO_PORTH_BASE, MR_CS, 0);
+    GPIO_InitStruct.Pin = FLASH_NSS_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
 
     // Initiate SPI transfer
-    SPI_transfer(Flash.handle, &Flash.ssi);
-    xSemaphoreTake(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete, portMAX_DELAY);
+    HAL_SPI_Transmit_DMA(Flash.handle, Flash.cmdbuf, 4);
+    xSemaphoreTake(Flash.done, portMAX_DELAY);
 
-//    MAP_GPIOPinConfigure(GPIO_PH5_SSI2FSS);
-//    MAP_GPIOPinTypeSSI(GPIO_PORTH_BASE, MR_CS);
+    GPIO_InitStruct.Pin = FLASH_NSS_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF6_SPI5;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
     MEMORY_UNLOCK;
     return (len);
@@ -280,6 +254,7 @@ int flash_read(uint8_t *data, uint32_t Adr, int len) {
  * Стирание сектора производится автоматически перед записью первого байта
  */
 int flash_write(uint8_t *data, uint32_t Adr, int len) {
+    GPIO_InitTypeDef GPIO_InitStruct;
 	uint32_t blockSize, wrlen;
 	if(len <= 0) return (0);
     MEMORY_LOCK;														        //блокируем доступ к ресурсу
@@ -301,24 +276,29 @@ int flash_write(uint8_t *data, uint32_t Adr, int len) {
         Flash.cmdbuf[1] = (uint8_t)(Adr >> 16);
         Flash.cmdbuf[2] = (uint8_t)(Adr >> 8);
         Flash.cmdbuf[3] = (uint8_t)Adr;
-        Flash.ssi.txBuf = Flash.cmdbuf;
-        Flash.ssi.rxBuf = NULL;
-        Flash.ssi.count = 4;
         // запись данных
         Flash.wrData = (uint8_t*)data;
         Flash.rdData = NULL;
         Flash.size = blockSize;
 
         // команда
-//        MAP_GPIOPinTypeGPIOOutput(GPIO_PORTH_BASE, MR_CS);
-//        MAP_GPIOPinWrite(GPIO_PORTH_BASE, MR_CS, 0);
+        GPIO_InitStruct.Pin = FLASH_NSS_PIN;
+        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+        GPIO_InitStruct.Pull = GPIO_PULLUP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+        HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+        HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
 
         // Initiate SPI transfer
-        SPI_transfer(Flash.handle, &Flash.ssi);
-        xSemaphoreTake(((SPITivaDMA_Object*)Flash.handle->object)->transferComplete, portMAX_DELAY);
+        HAL_SPI_Transmit_DMA(Flash.handle, Flash.cmdbuf, 4);
+        xSemaphoreTake(Flash.done, portMAX_DELAY);
 
-//        MAP_GPIOPinConfigure(GPIO_PH5_SSI2FSS);
-//        MAP_GPIOPinTypeSSI(GPIO_PORTH_BASE, MR_CS);
+        GPIO_InitStruct.Pin = FLASH_NSS_PIN;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+        GPIO_InitStruct.Alternate = GPIO_AF6_SPI5;
+        HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
         Adr += blockSize;
         data += blockSize;
