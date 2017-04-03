@@ -536,12 +536,13 @@ static void MX_GPIO_Init(void)
   */
 void Error_Handler(void)
 {
-  /* USER CODE BEGIN Error_Handler */
-  /* User can add his own implementation to report the HAL error return state */
-  while(1) 
-  {
-  }
-  /* USER CODE END Error_Handler */ 
+    /* USER CODE BEGIN Error_Handler */
+    uint8_t loop = 1;
+    /* User can add his own implementation to report the HAL error return state */
+    while(loop)
+    {
+    }
+    /* USER CODE END Error_Handler */
 }
 
 #ifdef USE_FULL_ASSERT

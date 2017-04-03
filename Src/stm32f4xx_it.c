@@ -37,7 +37,8 @@
 #include "cmsis_os.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "hardware.h"
+#include "sflash/ext_memory.h"
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -84,6 +85,33 @@ void OTG_FS_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+/**
+  * @brief  This function handles SPI interrupt request.
+  * @param  None
+  * @retval None
+  */
+void FLASH_IRQHandler(void) {
+    HAL_SPI_IRQHandler(Flash.handle);
+}
+
+/**
+  * @brief  This function handles DMA Rx interrupt request.
+  * @param  None
+  * @retval None
+  */
+void FLASH_DMA_RX_IRQHandler(void) {
+    HAL_DMA_IRQHandler(Flash.handle->hdmarx);
+}
+
+/**
+  * @brief  This function handles DMA Tx interrupt request.
+  * @param  None
+  * @retval None
+  */
+void FLASH_DMA_TX_IRQHandler(void) {
+    HAL_DMA_IRQHandler(Flash.handle->hdmatx);
+}
+
 
 /* USER CODE END 1 */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

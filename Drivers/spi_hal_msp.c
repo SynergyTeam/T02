@@ -11,7 +11,7 @@
 #include "stm32f4xx_hal.h"
 #include "hardware.h"
 
-extern void flash_callback(void);
+extern void flash_state_machine_callback(void);
 
 /**
   * @brief SPI MSP Initialization
@@ -52,7 +52,9 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
     }
     if (hspi->Instance == FLASH_BUS) {
         /* Peripheral clock enable */
-        __HAL_RCC_SPI5_CLK_ENABLE();
+        FLASH_BUS_ENABLE();
+        FLASH_CLK_ENABLE();
+        FLASH_DMAx_ENABLE();
 
         /**SPI5 GPIO Configuration
         PE11     ------> SPI5_NSS

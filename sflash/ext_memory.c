@@ -22,22 +22,11 @@ extern void Error_Handler(void);
 #define MEMORY_LOCK                 (xSemaphoreTake(Flash.gate, portMAX_DELAY))
 #define MEMORY_UNLOCK               (xSemaphoreGive(Flash.gate))
 
-//структура данных драйвера памяти
-typedef struct {
-    SPI_HandleTypeDef*  handle;         // SPI шина
-    SemaphoreHandle_t   gate;           // mutex доступа
-    SemaphoreHandle_t   done;           // семафор завершения операции
-    uint8_t             cmdbuf[5];      // буфер команды
-    uint8_t             *rdData;        // указатель на буфер чтения данных
-    uint8_t             *wrData;        // указатель на буфер записи данных
-    uint32_t            size;           // размер данных для записи/чтения
-} t_FlTrans;
-
 //------------------------------------------------------------------------------
 /* буфер обмена данными */
 
 /* локальные переменные */
-static t_FlTrans Flash;
+t_FlTrans Flash;
 
 /* локальные функции */
 static void wr_enable(t_FlTrans *flash);
@@ -78,6 +67,7 @@ void flash_state_machine_callback(void) {
 uint32_t flash_init(uint32_t *rsize) {
 
     Flash.handle = pvPortMalloc(sizeof(SPI_HandleTypeDef));
+    memset(Flash.handle, 0x00, sizeof(SPI_HandleTypeDef));
     Flash.handle->hdmatx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
     Flash.handle->hdmatx->Parent = Flash.handle;
     Flash.handle->hdmarx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
@@ -86,17 +76,18 @@ uint32_t flash_init(uint32_t *rsize) {
     Flash.done = xSemaphoreCreateBinary();
 
     Flash.handle->Instance = SPI5;
-    Flash.handle->Init.Mode = SPI_MODE_MASTER;
-    Flash.handle->Init.Direction = SPI_DIRECTION_2LINES;
-    Flash.handle->Init.DataSize = SPI_DATASIZE_8BIT;
-    Flash.handle->Init.CLKPolarity = SPI_POLARITY_LOW;
-    Flash.handle->Init.CLKPhase = SPI_PHASE_1EDGE;
-    Flash.handle->Init.NSS = SPI_NSS_HARD_OUTPUT;
-    Flash.handle->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-    Flash.handle->Init.FirstBit = SPI_FIRSTBIT_MSB;
-    Flash.handle->Init.TIMode = SPI_TIMODE_DISABLE;
-    Flash.handle->Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-    Flash.handle->Init.CRCPolynomial = 10;
+    Flash.handle->Init.Mode              = SPI_MODE_MASTER;
+    Flash.handle->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
+    Flash.handle->Init.Direction         = SPI_DIRECTION_2LINES;
+    Flash.handle->Init.CLKPhase          = SPI_PHASE_1EDGE;
+    Flash.handle->Init.CLKPolarity       = SPI_POLARITY_LOW;
+    Flash.handle->Init.DataSize          = SPI_DATASIZE_8BIT;
+    Flash.handle->Init.FirstBit          = SPI_FIRSTBIT_MSB;
+    Flash.handle->Init.TIMode            = SPI_TIMODE_DISABLE;
+    Flash.handle->Init.CRCCalculation    = SPI_CRCCALCULATION_DISABLE;
+    Flash.handle->Init.CRCPolynomial     = 7;
+    Flash.handle->Init.NSS               = SPI_NSS_HARD_OUTPUT;
+
     if (HAL_SPI_Init(Flash.handle) != HAL_OK) {
         Error_Handler();
 //        System_abort("Can't open Flash bus!");

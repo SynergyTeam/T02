@@ -2,6 +2,10 @@
 #ifndef __S_MEMORY__
 #define __S_MEMORY__
 
+#include <inttypes.h>
+#include "stm32f4xx_hal.h"
+#include "cmsis_os.h"
+
 // Размеры блока данных
 #define FLASH_BLOCK_SIZE        (0x1000)
 #define FLASH_BLOCK_MASK        (FLASH_BLOCK_SIZE - 1)
@@ -34,12 +38,26 @@
 #define QE_bit					0x40
 #define SRWD_bit				0x80
 
+//структура данных драйвера памяти
+typedef struct t_FlTrans {
+    SPI_HandleTypeDef*  handle;         // SPI шина
+    SemaphoreHandle_t   gate;           // mutex доступа
+    SemaphoreHandle_t   done;           // семафор завершения операции
+    uint8_t             cmdbuf[5];      // буфер команды
+    uint8_t             *rdData;        // указатель на буфер чтения данных
+    uint8_t             *wrData;        // указатель на буфер записи данных
+    uint32_t            size;           // размер данных для записи/чтения
+} t_FlTrans;
+
 //типы микросхем используемой памяти
 enum ram_type {
     flash = 0,
 
     all_types
 } ram_type;
+
+/* переменные */
+extern t_FlTrans Flash;
 
 /* заголовки */
 extern uint32_t flash_init(uint32_t *rsize);
