@@ -80,7 +80,7 @@ int SPI_control(SPI_Handle handle, unsigned int cmd, void *arg)
 /*
  *  ======== SPI_init ========
  */
-void SPI_init(uint32_t clock)
+void SPI_init(void)
 {
     if (SPI_count == -1) {
         /* Call each driver's init function */

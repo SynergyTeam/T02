@@ -354,7 +354,7 @@ extern int SPI_control(SPI_Handle handle, unsigned int cmd, void *arg);
  *          must exist and be persistent before this function can be called.
  *          This function must also be called before any other SPI driver APIs.
  */
-extern void SPI_init(uint32_t clock);
+extern void SPI_init(void);
 
 /*!
  *  @brief  This function opens a given SPI peripheral.

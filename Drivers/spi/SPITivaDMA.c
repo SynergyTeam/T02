@@ -128,6 +128,7 @@ static void SPI_DMAError(DMA_HandleTypeDef *hdma) {
     CLEAR_BIT(hwAttrs->Instance->CR2, SPI_CR2_TXDMAEN | SPI_CR2_RXDMAEN);
 
 //    SPI_ErrorCallback(hspi);                                                    //FIXME
+//    System_abort("DMA error!");
 }
 
 /**
@@ -154,6 +155,7 @@ static void SPI_DMACplt(DMA_HandleTypeDef *hdma) {
                 CLEAR_BIT(hwAttrs->Instance->CR2, SPI_CR2_TXDMAEN | SPI_CR2_RXDMAEN);
 
 //                SPI_ErrorCallback(hspi);                                        //FIXME
+//                System_abort("SPI bus error!");
                 return;
             }
         }
