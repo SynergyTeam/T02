@@ -113,8 +113,8 @@
  *  ============================================================================
  */
 
-#ifndef ti_drivers_spi_SPITivaDMA__include
-#define ti_drivers_spi_SPITivaDMA__include
+#ifndef ti_drivers_spi_SPIDMA__include
+#define ti_drivers_spi_SPIDMA__include
 
 #ifdef __cplusplus
 extern "C" {
@@ -127,23 +127,23 @@ extern "C" {
 
 
 /* Return codes for SPI_control() */
-#define SPITivaDMA_CMD_UNDEFINED    -1
+#define SPIDMA_CMD_UNDEFINED    -1
 
 /* SPI function table pointer */
-extern const SPI_FxnTable SPITivaDMA_fxnTable;
+extern const SPI_FxnTable SPIDMA_fxnTable;
 
 /*!
  *  @brief
  *  SPITivaDMA data frame size is used to determine how to configure the
  *  DMA data transfers. This field is to be only used internally.
  *
- *  SPITivaDMA_8bit:  txBuf and rxBuf are arrays of uint8_t elements
- *  SPITivaDMA_16bit: txBuf and rxBuf are arrays of uint16_t elements
+ *  SPIDMA_8bit:  txBuf and rxBuf are arrays of uint8_t elements
+ *  SPIDMA_16bit: txBuf and rxBuf are arrays of uint16_t elements
  */
-typedef enum SPITivaDMA_FrameSize {
-    SPITivaDMA_8bit  = SPI_DATASIZE_8BIT,
-    SPITivaDMA_16bit = SPI_DATASIZE_16BIT,
-} SPITivaDMA_FrameSize;
+typedef enum SPIDMA_FrameSize {
+    SPIDMA_8bit  = SPI_DATASIZE_8BIT,
+    SPIDMA_16bit = SPI_DATASIZE_16BIT,
+} SPIDMA_FrameSize;
 
 /*!
  *  @brief  SPITivaDMA Hardware attributes
@@ -156,7 +156,7 @@ typedef enum SPITivaDMA_FrameSize {
  *
  *  A sample structure is shown below:
  *  @code
- *  const SPITivaDMA_HWAttrs spiTivaDMAobjects[] = {
+ *  const SPIDMA_HWAttrs spiTivaDMAobjects[] = {
  *      {
  *          SPI5,
  *          SPI5_IRQn,
@@ -215,7 +215,7 @@ typedef struct SPIDMA_HWAttrs {
  *
  *  The application must not access any member variables of this structure!
  */
-typedef struct SPITivaDMA_Object {
+typedef struct SPIDMA_Object {
     SemaphoreHandle_t     transferComplete;     /* Notify finished SPITivaDMA transfer */
 
     SPI_TransferMode      transferMode;         /* SPITivaDMA transfer mode */
@@ -223,17 +223,17 @@ typedef struct SPITivaDMA_Object {
 
     SPI_Transaction      *transaction;          /* void * to the current transaction */
 
-    SPITivaDMA_FrameSize  frameSize;            /* Data frame size variable */
+    SPIDMA_FrameSize      frameSize;            /* Data frame size variable */
 
     DMA_HandleTypeDef    *hdmatx;               /* SPI Tx DMA Handle parameters */
 
     DMA_HandleTypeDef    *hdmarx;               /* SPI Rx DMA Handle parameters */
 
     bool                  isOpen;               /* flag to indicate module is open */
-} SPITivaDMA_Object, *SPITivaDMA_Handle;
+} SPIDMA_Object, *SPIDMA_Handle;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* ti_drivers_spi_SPITivaDMA__include */
+#endif /* ti_drivers_spi_SPIDMA__include */

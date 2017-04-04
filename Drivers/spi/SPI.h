@@ -248,7 +248,7 @@ typedef void        (*SPI_InitFxn)           (SPI_Handle handle);
  *              SPI_open().
  */
 typedef SPI_Handle  (*SPI_OpenFxn)           (SPI_Handle handle,
-                                              SPI_Params *params, uint32_t clock);
+                                              SPI_Params *params);
 
 /*!
  *  @brief      A function pointer to a driver specific implementation of

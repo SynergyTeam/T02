@@ -44,7 +44,6 @@ extern const SPI_Config SPI_config[];
 
 /* Used to check status and initialization */
 static int SPI_count = -1;
-static uint32_t cpuClock;
 
 /* Default SPI parameters structure */
 const SPI_Params SPI_defaultParams = {
@@ -84,7 +83,6 @@ int SPI_control(SPI_Handle handle, unsigned int cmd, void *arg)
 void SPI_init(uint32_t clock)
 {
     if (SPI_count == -1) {
-        cpuClock = clock;
         /* Call each driver's init function */
         for (SPI_count = 0; SPI_config[SPI_count].fxnTablePtr != NULL; SPI_count++) {
             SPI_config[SPI_count].fxnTablePtr->initFxn((SPI_Handle)&(SPI_config[SPI_count]));
@@ -104,7 +102,7 @@ SPI_Handle SPI_open(unsigned int index, SPI_Params *params)
     /* Get handle for this driver instance */
     handle = (SPI_Handle)&(SPI_config[index]);
 
-    return (handle->fxnTablePtr->openFxn(handle, params, cpuClock));
+    return (handle->fxnTablePtr->openFxn(handle, params));
 }
 
 /*

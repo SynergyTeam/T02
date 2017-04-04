@@ -48,26 +48,26 @@ typedef struct {
 
 
 /* SPITiva functions */
-void         SPITivaDMA_close(SPI_Handle handle);
-int          SPITivaDMA_control(SPI_Handle handle, unsigned int cmd, void *arg);
-void         SPITivaDMA_init(SPI_Handle handle);
-SPI_Handle   SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock);
-void         SPITivaDMA_serviceISR(SPI_Handle handle);
-bool         SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction);
-void         SPITivaDMA_transferCancel(SPI_Handle handle);
-static void  SPITivaDMA_transferCallback(SPI_Handle handle, SPI_Transaction *transaction);
-bool         SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction);
+void         SPIDMA_close(SPI_Handle handle);
+int          SPIDMA_control(SPI_Handle handle, unsigned int cmd, void *arg);
+void         SPIDMA_init(SPI_Handle handle);
+SPI_Handle   SPIDMA_open(SPI_Handle handle, SPI_Params *params);
+void         SPIDMA_serviceISR(SPI_Handle handle);
+bool         SPIDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction);
+void         SPIDMA_transferCancel(SPI_Handle handle);
+static void  SPIDMA_transferCallback(SPI_Handle handle, SPI_Transaction *transaction);
+bool         SPIDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction);
 
 /* SPI function table for SPITivaDMA implementation */
-const SPI_FxnTable SPITivaDMA_fxnTable = {
-    SPITivaDMA_close,
-    SPITivaDMA_control,
-    SPITivaDMA_init,
-    SPITivaDMA_open,
-    SPITivaDMA_transfer,
-    SPITivaDMA_transferCancel,
-    SPITivaDMA_serviceISR,
-    SPITivaDMA_configDMA
+const SPI_FxnTable SPIDMA_fxnTable = {
+    SPIDMA_close,
+    SPIDMA_control,
+    SPIDMA_init,
+    SPIDMA_open,
+    SPIDMA_transfer,
+    SPIDMA_transferCancel,
+    SPIDMA_serviceISR,
+    SPIDMA_configDMA
 };
 
 /* Default SPI params */
@@ -120,16 +120,50 @@ const uint32_t dmaNullConfig[] = {
   *               the configuration information for the specified DMA module.
   * @retval None
   */
-static void SPI_DMAError(DMA_HandleTypeDef *hdma)
-{
-  SPI_HandleTypeDef* hspi = (SPI_HandleTypeDef* )((DMA_HandleTypeDef* )hdma)->Parent;
+static void SPI_DMAError(DMA_HandleTypeDef *hdma) {
+    SPI_Handle hspi = (SPI_Handle)hdma->Parent;
+    SPIDMA_HWAttrs const *hwAttrs = hspi->hwAttrs;
 
-/* Stop the disable DMA transfer on SPI side */
-  CLEAR_BIT(hspi->Instance->CR2, SPI_CR2_TXDMAEN | SPI_CR2_RXDMAEN);
+    /* Stop the disable DMA transfer on SPI side */
+    CLEAR_BIT(hwAttrs->Instance->CR2, SPI_CR2_TXDMAEN | SPI_CR2_RXDMAEN);
 
-  SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_DMA);
-  hspi->State = HAL_SPI_STATE_READY;
-//  HAL_SPI_ErrorCallback(hspi);                                                //FIXME
+//    SPI_ErrorCallback(hspi);                                                    //FIXME
+}
+
+/**
+  * @brief  DMA SPI transmit receive process complete callback.
+  * @param  hdma: pointer to a DMA_HandleTypeDef structure that contains
+  *               the configuration information for the specified DMA module.
+  * @retval None
+  */
+static void SPI_DMACplt(DMA_HandleTypeDef *hdma) {
+    SPIDMA_HWAttrs const *hwAttrs = ((SPI_Handle)hdma->Parent)->hwAttrs;
+    SPIDMA_Object *object = ((SPI_Handle)hdma->Parent)->object;
+    SPI_Transaction *msg;
+
+    uint32_t ticks;
+
+    /* Init tickstart for timeout management*/
+
+    if ((hdma->Instance->CR & DMA_SxCR_CIRC) == 0U) {
+        /* Check the end of the transaction */
+        for(ticks = HAL_GetTick(); (hwAttrs->Instance->SR & SPI_FLAG_BSY); ) {
+            /* Check for the Timeout */
+            if((HAL_GetTick() - ticks) >= 10) {
+                /* Disable Rx/Tx DMA Request */
+                CLEAR_BIT(hwAttrs->Instance->CR2, SPI_CR2_TXDMAEN | SPI_CR2_RXDMAEN);
+
+//                SPI_ErrorCallback(hspi);                                        //FIXME
+                return;
+            }
+        }
+    }
+
+    msg = object->transaction;
+    object->transaction = NULL;
+    Log_print2(Diags_USER1,"SPI:(%p) DMA transaction: %p complete", hwAttrs->Instance, (uint32_t)msg);
+    object->transferCallbackFxn((SPI_Handle)hdma->Parent, msg);
+    Log_print1(Diags_USER2, "SPI:(%p) interrupt context end", hwAttrs->Instance);
 }
 
 /*------------------------------------------------------------------------------
@@ -203,13 +237,13 @@ static void uDMAChannelControlSet(DMA_HandleTypeDef *chnl, uint32_t control) {
     chnl->State = HAL_DMA_STATE_READY;
 }
 /*
- *  ======== SPITivaDMA_close ========
+ *  ======== SPIDMA_close ========
  *  @pre    Function assumes that the handle is not NULL
  */
-void SPITivaDMA_close(SPI_Handle handle)
+void SPIDMA_close(SPI_Handle handle)
 {
-    SPITivaDMA_Object          *object = handle->object;
-    SPIDMA_HWAttrs const   *hwAttrs = handle->hwAttrs;
+    SPIDMA_HWAttrs const *hwAttrs = handle->hwAttrs;
+    SPIDMA_Object *object = handle->object;
 
     __HAL_SPI_DISABLE(hwAttrs);
 
@@ -223,7 +257,7 @@ void SPITivaDMA_close(SPI_Handle handle)
 
     /* Destroy the Hwi */
     /*##-4- Disable the NVIC for DMA #########################################*/
-    HAL_NVIC_DisableIRQ(hwAttrs->uDMA_txChnl);
+    HAL_NVIC_DisableIRQ(hwAttrs->uDMA_txInt);
     HAL_NVIC_DisableIRQ(hwAttrs->uDMA_rxInt);
 
     /*##-5- Disable the NVIC for SPI #########################################*/
@@ -238,27 +272,27 @@ void SPITivaDMA_close(SPI_Handle handle)
 }
 
 /*
- *  ======== SPITivaDMA_control ========
+ *  ======== SPIDMA_control ========
  *  @pre    Function assumes that the handle is not NULL
  */
-int SPITivaDMA_control(SPI_Handle handle, unsigned int cmd, void *arg)
+int SPIDMA_control(SPI_Handle handle, unsigned int cmd, void *arg)
 {
 	/* No implementation yet */
-	return (SPITivaDMA_CMD_UNDEFINED);
+	return (SPIDMA_CMD_UNDEFINED);
 }
 
 /*
- *  ======== SPITivaDMA_configDMA ========
+ *  ======== SPIDMA_configDMA ========
  *  This functions configures the transmit and receive DMA channels for a given
  *  SPI_Handle and SPI_Transaction
  *
  *  @pre    Function assumes that the handle and transaction is not NULL
  */
-bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
+bool SPIDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
 {
     void                      *buf;
     uint32_t                   channelControlOptions;
-    SPITivaDMA_Object         *object = handle->object;
+    SPIDMA_Object         *object = handle->object;
     SPIDMA_HWAttrs const  *hwAttrs = handle->hwAttrs;
 
     if (transaction->txBuf) {
@@ -267,7 +301,7 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
     }
     else {
         channelControlOptions = dmaNullConfig[object->frameSize];
-        channelControlOptions |= DMA_PERIPH_TO_MEMORY;
+        channelControlOptions |= DMA_MEMORY_TO_PERIPH;
         *hwAttrs->scratchBufPtr = hwAttrs->defaultTxBufValue;
         buf = hwAttrs->scratchBufPtr;
     }
@@ -278,7 +312,7 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
     object->hdmatx->XferCpltCallback     = NULL;
     object->hdmatx->XferErrorCallback    = NULL;
     object->hdmatx->XferAbortCallback    = NULL;
-
+    object->hdmatx->Init.Direction = DMA_MEMORY_TO_PERIPH;
     /* Enable the Tx DMA Stream */
     HAL_DMA_Start_IT(object->hdmatx, (uint32_t)buf, (uint32_t)&hwAttrs->Instance->DR, transaction->count);
 
@@ -288,19 +322,17 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
     }
     else {
         channelControlOptions = dmaNullConfig[object->frameSize];
-        channelControlOptions |= DMA_MEMORY_TO_PERIPH;
+        channelControlOptions |= DMA_PERIPH_TO_MEMORY;
         buf = hwAttrs->scratchBufPtr;
     }
 
     /* Setup the RX transfer characteristics */
     uDMAChannelControlSet(object->hdmarx, channelControlOptions);
     object->hdmarx->XferHalfCpltCallback = NULL;
-    object->hdmarx->XferCpltCallback = SPITivaDMA_transferCallback;             //FIXME
-    /* Set the DMA error callback */
+    object->hdmarx->XferCpltCallback = SPI_DMACplt;
     object->hdmarx->XferErrorCallback = SPI_DMAError;
-    /* Set the DMA AbortCpltCallback */
     object->hdmarx->XferAbortCallback = NULL;
-
+    object->hdmatx->Init.Direction = DMA_PERIPH_TO_MEMORY;
     /* Setup the RX transfer buffers */
     HAL_DMA_Start_IT(object->hdmarx, (uint32_t)&hwAttrs->Instance->DR, (uint32_t)buf, transaction->count);
 
@@ -313,6 +345,8 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
                             (UArg)transaction->rxBuf,
                             (UArg)transaction->txBuf,
                             (UArg)transaction->count);
+
+    object->transaction = transaction;
 
     /* Enable Rx DMA Request */
     SET_BIT(hwAttrs->Instance->CR2, SPI_CR2_RXDMAEN);
@@ -331,68 +365,22 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
 }
 
 /*
- *  ======== SPITivaDMA_hwiFxn ========
- *  ISR for the SPI when we use the DMA
- */
-void SPITivaDMA_hwiFxn(uint32_t arg)
-{
-    SPI_Transaction      *msg;
-    SPITivaDMA_Object    *object = ((SPI_Handle)arg)->object;
-    SPIDMA_HWAttrs const *hwAttrs = ((SPI_Handle)arg)->hwAttrs;
-
-    Log_print1(Diags_USER2, "SPI:(%p) interrupt context start", hwAttrs->Instance);
-
-//    if (SSIMODE(hwAttrs->Instance)) {
-//        /* We know that at least the Tx channel triggered the interrupt */
-//        MAP_SSIIntDisable(hwAttrs->Instance, SSI_DMATX);
-//    }
-
-    /* Determine if the TX and RX DMA channels have completed */
-    if ((object->transaction) /*&&
-        (MAP_uDMAChannelIsEnabled(hwAttrs->rxChannelIndex) == false)*/) {
-
-//        if (SSIMODE(hwAttrs->Instance)) {
-//            /* Now we know that the Rx channel may have triggered the interrupt */
-//            MAP_SSIIntDisable(hwAttrs->Instance, SSI_DMARX);
-//        }
-
-        /*
-         * Use a temporary transaction pointer in case the callback function
-         * attempts to perform another SPI_transfer call
-         */
-        msg = object->transaction;
-
-        /* Indicate we are done with this transfer */
-        object->transaction = NULL;
-
-        Log_print2(Diags_USER1,"SPI:(%p) DMA transaction: %p complete",
-                                hwAttrs->Instance, (UArg)msg);
-
-        /* Perform callback */
-        object->transferCallbackFxn((SPI_Handle)arg, msg);
-    }
-
-    Log_print1(Diags_USER2, "SPI:(%p) interrupt context end",
-                             hwAttrs->Instance);
-}
-
-/*
- *  ======== SPITivaDMA_init ========
+ *  ======== SPIDMA_init ========
  *  @pre    Function assumes that the handle is not NULL
  */
-void SPITivaDMA_init(SPI_Handle handle)
+void SPIDMA_init(SPI_Handle handle)
 {
     /* Mark the object as available */
-    ((SPITivaDMA_Object *)(handle->object))->isOpen = false;
+    ((SPIDMA_Object *)(handle->object))->isOpen = false;
 }
 
 /*
- *  ======== SPITivaDMA_open ========
+ *  ======== SPIDMA_open ========
  *  @pre    Function assumes that the handle is not NULL
  */
-SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock)
+SPI_Handle SPIDMA_open(SPI_Handle handle, SPI_Params *params)
 {
-    SPITivaDMA_Object *object = handle->object;
+    SPIDMA_Object *object = handle->object;
     SPIDMA_HWAttrs const *hwAttrs = handle->hwAttrs;
 
     /* Determine if the device index was already opened */
@@ -412,7 +400,7 @@ SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock
     assert_param((params->dataSize >= 4) && (params->dataSize <= 16));          //FIXME
 
     /* Determine if we need to use an 8-bit or 16-bit framesize for the DMA */
-    object->frameSize = (params->dataSize < 9) ? SPITivaDMA_8bit : SPITivaDMA_16bit;
+    object->frameSize = (params->dataSize < 9) ? SPIDMA_8bit : SPIDMA_16bit;
 
     Log_print2(Diags_USER2,"SPI:(%p) DMA buffer incrementation size: %s",
                             hwAttrs->Instance,
@@ -430,7 +418,7 @@ SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock
     if (object->transferMode == SPI_MODE_BLOCKING) {
         Log_print1(Diags_USER2, "SPI:(%p) in SPI_MODE_BLOCKING mode", hwAttrs->Instance);
         /* Store internal callback function */
-        object->transferCallbackFxn = SPITivaDMA_transferCallback;
+        object->transferCallbackFxn = SPIDMA_transferCallback;
     }
     else {
         Log_print1(Diags_USER2, "SPI:(%p) in SPI_MODE_CALLBACK mode", hwAttrs->Instance);
@@ -497,45 +485,39 @@ SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock
 }
 
 /*
- *  ======== SPITivaDMA_serviceISR ========
+ *  ======== SPIDMA_serviceISR ========
  */
-void SPITivaDMA_serviceISR(SPI_Handle handle)
-{
+void SPIDMA_serviceISR(SPI_Handle handle) {
     /* Function is not supported */
     assert_param(handle != NULL);
-    SPITivaDMA_hwiFxn((uint32_t)handle);
+    HAL_DMA_IRQHandler(((SPIDMA_Object*)handle->object)->hdmarx);
 }
 
 /*
- *  ======== SPITivaDMA_transfer ========
+ *  ======== SPIDMA_transfer ========
  *  @pre    Function assumes that handle and transaction is not NULL
  */
-bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
+bool SPIDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
 {
-    SPITivaDMA_Object         *object = handle->object;
-    SPIDMA_HWAttrs const  *hwattrs = handle->hwAttrs;
+    SPIDMA_HWAttrs const *hwattrs = handle->hwAttrs;
+    SPIDMA_Object *object = handle->object;
 
     /* Check the transaction arguments */
-    if ((transaction->count == 0) || (transaction->count > 1024) ||
+    if ((transaction->count == 0) ||
        !(transaction->rxBuf || transaction->txBuf) ||
-      (!(transaction->rxBuf && transaction->txBuf) && !hwattrs->scratchBufPtr)) {
+       (!(transaction->rxBuf && transaction->txBuf) && !hwattrs->scratchBufPtr)) {
         return (false);
     }
 
     /* Make sure that the buffers are aligned properly */
-    if (object->frameSize == SPITivaDMA_16bit) {
+    if (object->frameSize == SPIDMA_16bit) {
         assert_param(!((uint32_t)transaction->txBuf & 0x1));
         assert_param(!((uint32_t)transaction->rxBuf & 0x1));
     }
 
     /* Check if a transfer is in progress */
-//    MAP_IntDisable(hwattrs->intNum);
     if (object->transaction) {
-//        MAP_IntEnable(hwattrs->intNum);
-
-        Log_error1("SPI:(%p) transaction still in progress",
-                   hwattrs->Instance);
-
+        Log_error1("SPI:(%p) transaction still in progress", hwattrs->Instance);
         /* Transfer is in progress */
         return (false);
     }
@@ -543,14 +525,10 @@ bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
         /* Save the pointer to the transaction */
         object->transaction = transaction;
     }
-//    MAP_IntEnable(hwattrs->intNum);
 
-    SPITivaDMA_configDMA(handle, transaction);
-
+    SPIDMA_configDMA(handle, transaction);
     if (object->transferMode == SPI_MODE_BLOCKING) {
-        Log_print1(Diags_USER1,
-                   "SPI:(%p) transfer pending on transferComplete semaphore",
-                    hwattrs->Instance);
+        Log_print1(Diags_USER1, "SPI:(%p) transfer pending on transferComplete semaphore", hwattrs->Instance);
         xSemaphoreTake(object->transferComplete, portMAX_DELAY);
     }
 
@@ -558,33 +536,32 @@ bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
 }
 
 /*
- *  ======== SPITivaDMA_transferCancel ========
+ *  ======== SPIDMA_transferCancel ========
  *  A function to cancel a transaction (if one is in progress) when the driver
  *  is in SPI_MODE_CALLBACK.
  *
  *  @pre    Function assumes that the handle is not NULL
  */
-void SPITivaDMA_transferCancel(SPI_Handle handle)
+void SPIDMA_transferCancel(SPI_Handle handle)
 {
 	/* No implementation yet */
     assert_param(false);
 }
 
 /*
- *  ======== SPITivaDMA_transferCallback ========
+ *  ======== SPIDMA_transferCallback ========
  *  Callback function for when the SPI is in SPI_MODE_BLOCKING
  *
  *  @pre    Function assumes that the handle is not NULL
  */
-static void SPITivaDMA_transferCallback(SPI_Handle handle,
-                                        SPI_Transaction *transaction)
+static void SPIDMA_transferCallback(SPI_Handle handle, SPI_Transaction *transaction)
 {
-    SPITivaDMA_Object *object = handle->object;
+    SPIDMA_Object *object = handle->object;
     BaseType_t TaskWoken = pdFALSE;
 
     Log_print1(Diags_USER1, "SPI:(%p) posting transferComplete semaphore",
-                ((SPIDMA_HWAttrs const *)(handle->hwAttrs))->Instance);
+                            ((SPIDMA_HWAttrs const *)(handle->hwAttrs))->Instance);
 
-     xSemaphoreGiveFromISR(object->transferComplete, &TaskWoken);
+    xSemaphoreGiveFromISR(object->transferComplete, &TaskWoken);
 }
 
