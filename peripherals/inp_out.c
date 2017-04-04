@@ -25,6 +25,7 @@ void InputOutputTask(void const * argument) {
 
     osDelay(3000);
     ConsoleMes("Device starting...\r\n");
+    HW_initSPI(180);
     flash_init(&flash_size);
 
     for(;;)
