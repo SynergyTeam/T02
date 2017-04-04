@@ -110,8 +110,8 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
 
         /*##-3- Configure the NVIC for SPI ###################################*/
         /* NVIC for SPI */
-        HAL_NVIC_SetPriority(FLASH_IRQn, 1, 0);
-        HAL_NVIC_EnableIRQ(FLASH_IRQn);
+        HAL_NVIC_SetPriority(ExtFLASH_IRQn, 1, 0);
+        HAL_NVIC_EnableIRQ(ExtFLASH_IRQn);
 
         /*##-4- Configure the NVIC for DMA ###################################*/
         /* NVIC configuration for DMA transfer complete interrupt (SPI2_TX) */
@@ -123,8 +123,8 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         HAL_NVIC_EnableIRQ(FLASH_DMA_RX_IRQn);
 
         /*##-5- Configure the NVIC for SPI ###################################*/
-        HAL_NVIC_SetPriority(FLASH_IRQn, 1, 2);
-        HAL_NVIC_EnableIRQ(FLASH_IRQn);
+        HAL_NVIC_SetPriority(ExtFLASH_IRQn, 1, 2);
+        HAL_NVIC_EnableIRQ(ExtFLASH_IRQn);
     }
 }
 
@@ -178,7 +178,7 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef *hspi) {
         HAL_NVIC_DisableIRQ(FLASH_DMA_RX_IRQn);
 
         /*##-5- Disable the NVIC for SPI #####################################*/
-        HAL_NVIC_DisableIRQ(FLASH_IRQn);
+        HAL_NVIC_DisableIRQ(ExtFLASH_IRQn);
     }
 }
 

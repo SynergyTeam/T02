@@ -28,7 +28,7 @@
 #define FLASH_RX_DMA_CHANNEL         DMA_CHANNEL_7
 
 /* Definition for SPIx's NVIC */
-#define FLASH_IRQn                   SPI5_IRQn
+#define ExtFLASH_IRQn                SPI5_IRQn
 #define FLASH_IRQHandler             SPI5_IRQHandler
 
 /* Definition for SPIx's NVIC */
