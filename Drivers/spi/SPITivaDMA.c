@@ -38,23 +38,14 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
-/* driverlib header files */
-//#include <inc/hw_memmap.h>
-//#include <inc/hw_types.h>
-//#include <inc/hw_ssi.h>
-//#include <driverlib/rom_map.h>
-//#include <driverlib/gpio.h>
-//#include <driverlib/ssi.h>
-//#include <driverlib/udma.h>
-//#include <driverlib/sysctl.h>
-//#include <driverlib/interrupt.h>
+/*----------------------------------------------------------------------------*/
+// локальная копия структуры из файла stm32f4xx_hal_dma.c
+typedef struct {
+  __IO uint32_t ISR;   /*!< DMA interrupt status register */
+  __IO uint32_t Reserved0;
+  __IO uint32_t IFCR;  /*!< DMA interrupt flag clear register */
+} DMA_Base_Registers;
 
-/*
- * Macro to access "Mode of Operation" bits in the SSIPP register
- * If it returns 0; we're using a SSI controller
- * else, we're using a Bi-/Quad-SSI peripheral
- */
-//#define SSIMODE(Instance) HWREG(Instance + SSI_O_PP) & (SSI_PP_MODE_M)
 
 /* SPITiva functions */
 void         SPITivaDMA_close(SPI_Handle handle);
@@ -84,39 +75,133 @@ extern const SPI_Params SPI_defaultParams;
 
 /*
  * This lookup table is used to configure the DMA channels for the appropriate
- * (8bit or 16bit) transfer sizes.
+ * (8bit / 16bit / 32bit) transfer sizes.
  * Table for an SPI DMA TX channel
  */
 const uint32_t dmaTxConfig[] = {
-//    UDMA_SIZE_8  | UDMA_SRC_INC_8    | UDMA_DST_INC_NONE | UDMA_ARB_4, // 8bit
-    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_PDATAALIGN_BYTE | DMA_MINC_ENABLE | DMA_MDATAALIGN_BYTE,
-//    UDMA_SIZE_16 | UDMA_SRC_INC_16   | UDMA_DST_INC_NONE | UDMA_ARB_4  // 16bit
-    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_PDATAALIGN_HALFWORD | DMA_MINC_ENABLE | DMA_MDATAALIGN_HALFWORD,
+    // 8 bit
+    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_BYTE     | DMA_MDATAALIGN_BYTE     | DMA_NORMAL | DMA_PRIORITY_LOW,
+    // 16 bit
+    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_HALFWORD | DMA_MDATAALIGN_HALFWORD | DMA_NORMAL | DMA_PRIORITY_LOW,
+    // 32 bit
+    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_WORD     | DMA_MDATAALIGN_WORD     | DMA_NORMAL | DMA_PRIORITY_LOW,
 };
 
 /*
  * This lookup table is used to configure the DMA channels for the appropriate
- * (8bit or 16bit) transfer sizes.
+ * (8bit / 16bit / 32bit) transfer sizes.
  * Table for an SPI DMA RX channel
  */
 const uint32_t dmaRxConfig[] = {
-//    UDMA_SIZE_8  | UDMA_SRC_INC_NONE | UDMA_DST_INC_8    | UDMA_ARB_4, // 8bit
-    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_PDATAALIGN_BYTE | DMA_MINC_ENABLE | DMA_MDATAALIGN_BYTE,
-//    UDMA_SIZE_16 | UDMA_SRC_INC_NONE | UDMA_DST_INC_16   | UDMA_ARB_4  // 16bit
-    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_PDATAALIGN_HALFWORD | DMA_MINC_ENABLE | DMA_MDATAALIGN_HALFWORD,
+    // 8 bit
+    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_BYTE     | DMA_MDATAALIGN_BYTE     | DMA_NORMAL | DMA_PRIORITY_LOW,
+    // 16 bit
+    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_HALFWORD | DMA_MDATAALIGN_HALFWORD | DMA_NORMAL | DMA_PRIORITY_LOW,
+    // 32 bit
+    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_WORD     | DMA_MDATAALIGN_WORD     | DMA_NORMAL | DMA_PRIORITY_LOW,
 };
 
 /*
  * This lookup table is used to configure the DMA channels for the appropriate
- * (8bit or 16bit) transfer sizes when either txBuf or rxBuf are NULL
+ * (8bit / 16bit / 32bit) transfer sizes when either txBuf or rxBuf are NULL
  */
 const uint32_t dmaNullConfig[] = {
-//    UDMA_SIZE_8  | UDMA_SRC_INC_NONE | UDMA_DST_INC_NONE | UDMA_ARB_4, // 8bit
-    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_PDATAALIGN_BYTE | DMA_MINC_DISABLE | DMA_MDATAALIGN_BYTE,
-//    UDMA_SIZE_16 | UDMA_SRC_INC_NONE | UDMA_DST_INC_NONE | UDMA_ARB_4  // 16bit
-    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_PDATAALIGN_HALFWORD | DMA_MINC_DISABLE | DMA_MDATAALIGN_HALFWORD,
+    // 8 bit
+    DMA_PINC_DISABLE | DMA_MINC_DISABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_BYTE     | DMA_MDATAALIGN_BYTE     | DMA_NORMAL | DMA_PRIORITY_LOW,
+    // 16 bit
+    DMA_PINC_DISABLE | DMA_MINC_DISABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_HALFWORD | DMA_MDATAALIGN_HALFWORD | DMA_NORMAL | DMA_PRIORITY_LOW,
+    // 32 bit
+    DMA_PINC_DISABLE | DMA_MINC_DISABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_WORD     | DMA_MDATAALIGN_WORD     | DMA_NORMAL | DMA_PRIORITY_LOW,
 };
 
+/**
+  * @brief  DMA SPI communication error callback.
+  * @param  hdma: pointer to a DMA_HandleTypeDef structure that contains
+  *               the configuration information for the specified DMA module.
+  * @retval None
+  */
+static void SPI_DMAError(DMA_HandleTypeDef *hdma)
+{
+  SPI_HandleTypeDef* hspi = (SPI_HandleTypeDef* )((DMA_HandleTypeDef* )hdma)->Parent;
+
+/* Stop the disable DMA transfer on SPI side */
+  CLEAR_BIT(hspi->Instance->CR2, SPI_CR2_TXDMAEN | SPI_CR2_RXDMAEN);
+
+  SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_DMA);
+  hspi->State = HAL_SPI_STATE_READY;
+//  HAL_SPI_ErrorCallback(hspi);                                                //FIXME
+}
+
+/*------------------------------------------------------------------------------
+ * Настройка параметров uDMA транзакции
+ */
+static void uDMAChannelControlSet(DMA_HandleTypeDef *chnl, uint32_t control) {
+    static const uint8_t flagBitshiftOffset[8U] = {0U, 6U, 16U, 22U, 0U, 6U, 16U, 22U};
+    uint32_t tmp;
+
+    /* Disable the peripheral */
+    __HAL_DMA_DISABLE(chnl);
+
+    /* XXX возможно требуется доработка
+     * Check if the DMA Stream is effectively disabled
+     */
+    for(tmp = HAL_GetTick(); (chnl->Instance->CR & DMA_SxCR_EN) != RESET; ) {
+        /* Check for the Timeout */
+        if((HAL_GetTick() - tmp) > 100) {
+            /* Update error code */
+            chnl->ErrorCode = HAL_DMA_ERROR_TIMEOUT;
+            /* Change the DMA state */
+            chnl->State = HAL_DMA_STATE_TIMEOUT;
+            return;
+        }
+    }
+
+    /* Get the CR register value */
+    tmp = chnl->Instance->CR;
+
+    /* Clear CHSEL, MBURST, PBURST, PL, MSIZE, PSIZE, MINC, PINC, CIRC, DIR, CT and DBM bits */
+    tmp &= ((uint32_t)~(DMA_SxCR_CHSEL | DMA_SxCR_MBURST | DMA_SxCR_PBURST | \
+                        DMA_SxCR_PL    | DMA_SxCR_MSIZE  | DMA_SxCR_PSIZE  | \
+                        DMA_SxCR_MINC  | DMA_SxCR_PINC   | DMA_SxCR_CIRC   | \
+                        DMA_SxCR_DIR   | DMA_SxCR_CT     | DMA_SxCR_DBM));
+
+    /* Prepare the DMA Stream configuration */
+    tmp |= control;
+
+    /* Write to DMA Stream CR register */
+    chnl->Instance->CR = tmp;
+
+    /* Get the FCR register value */
+    tmp = chnl->Instance->FCR;
+    /* Clear Direct mode and FIFO threshold bits */
+    tmp &= (uint32_t)~(DMA_SxFCR_DMDIS | DMA_SxFCR_FTH);
+    /* Prepare the DMA Stream FIFO configuration */
+    tmp |= DMA_FIFOMODE_DISABLE;
+    /* Write to DMA Stream FCR */
+    chnl->Instance->FCR = tmp;
+
+    /* Initialize StreamBaseAddress and StreamIndex parameters to be used to calculate
+       DMA steam Base Address needed by HAL_DMA_IRQHandler() and HAL_DMA_PollForTransfer() */
+    tmp = (((uint32_t)chnl->Instance & 0xFFU) - 16U) / 24U;
+    chnl->StreamIndex = flagBitshiftOffset[tmp];
+    if (tmp > 3U) {
+        /* return pointer to HISR and HIFCR */
+        chnl->StreamBaseAddress = (((uint32_t)chnl->Instance & (uint32_t)(~0x3FFU)) + 4U);
+    }
+    else {
+        /* return pointer to LISR and LIFCR */
+        chnl->StreamBaseAddress = ((uint32_t)chnl->Instance & (uint32_t)(~0x3FFU));
+    }
+
+    /* Clear all interrupt flags */
+    ((DMA_Base_Registers*)chnl->StreamBaseAddress)->IFCR = 0x3FU << chnl->StreamIndex;
+
+    /* Initialize the error code */
+    chnl->ErrorCode = HAL_DMA_ERROR_NONE;
+
+    /* Initialize the DMA state */
+    chnl->State = HAL_DMA_STATE_READY;
+}
 /*
  *  ======== SPITivaDMA_close ========
  *  @pre    Function assumes that the handle is not NULL
@@ -124,7 +209,7 @@ const uint32_t dmaNullConfig[] = {
 void SPITivaDMA_close(SPI_Handle handle)
 {
     SPITivaDMA_Object          *object = handle->object;
-    SPITivaDMA_HWAttrs const   *hwAttrs = handle->hwAttrs;
+    SPIDMA_HWAttrs const   *hwAttrs = handle->hwAttrs;
 
     __HAL_SPI_DISABLE(hwAttrs);
 
@@ -138,7 +223,7 @@ void SPITivaDMA_close(SPI_Handle handle)
 
     /* Destroy the Hwi */
     /*##-4- Disable the NVIC for DMA #########################################*/
-    HAL_NVIC_DisableIRQ(hwAttrs->uDMA_txInt);
+    HAL_NVIC_DisableIRQ(hwAttrs->uDMA_txChnl);
     HAL_NVIC_DisableIRQ(hwAttrs->uDMA_rxInt);
 
     /*##-5- Disable the NVIC for SPI #########################################*/
@@ -171,11 +256,10 @@ int SPITivaDMA_control(SPI_Handle handle, unsigned int cmd, void *arg)
  */
 bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
 {
-    SPIDataType                dummy;
     void                      *buf;
     uint32_t                   channelControlOptions;
     SPITivaDMA_Object         *object = handle->object;
-    SPITivaDMA_HWAttrs const  *hwAttrs = handle->hwAttrs;
+    SPIDMA_HWAttrs const  *hwAttrs = handle->hwAttrs;
 
     if (transaction->txBuf) {
         channelControlOptions = dmaTxConfig[object->frameSize];
@@ -183,20 +267,20 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
     }
     else {
         channelControlOptions = dmaNullConfig[object->frameSize];
+        channelControlOptions |= DMA_PERIPH_TO_MEMORY;
         *hwAttrs->scratchBufPtr = hwAttrs->defaultTxBufValue;
         buf = hwAttrs->scratchBufPtr;
     }
 
-//    /* Setup the TX transfer characteristics */
-//    MAP_uDMAChannelControlSet(hwAttrs->txChannelIndex | UDMA_PRI_SELECT,
-//                              channelControlOptions);
-//
-//    /* Setup the TX transfer buffers */
-//    MAP_uDMAChannelTransferSet(hwAttrs->txChannelIndex | UDMA_PRI_SELECT,
-//                               UDMA_MODE_BASIC,
-//                               buf,
-//                               (void *)(hwAttrs->Instance + SSI_O_DR),
-//                               transaction->count);
+    /* Setup the TX transfer characteristics */
+    uDMAChannelControlSet(object->hdmatx, channelControlOptions);
+    object->hdmatx->XferHalfCpltCallback = NULL;
+    object->hdmatx->XferCpltCallback     = NULL;
+    object->hdmatx->XferErrorCallback    = NULL;
+    object->hdmatx->XferAbortCallback    = NULL;
+
+    /* Enable the Tx DMA Stream */
+    HAL_DMA_Start_IT(object->hdmatx, (uint32_t)buf, (uint32_t)&hwAttrs->Instance->DR, transaction->count);
 
     if (transaction->rxBuf) {
         channelControlOptions = dmaRxConfig[object->frameSize];
@@ -204,19 +288,21 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
     }
     else {
         channelControlOptions = dmaNullConfig[object->frameSize];
+        channelControlOptions |= DMA_MEMORY_TO_PERIPH;
         buf = hwAttrs->scratchBufPtr;
     }
 
-//    /* Setup the RX transfer characteristics */
-//    MAP_uDMAChannelControlSet(hwAttrs->rxChannelIndex | UDMA_PRI_SELECT,
-//                              channelControlOptions);
-//
-//    /* Setup the RX transfer buffers */
-//    MAP_uDMAChannelTransferSet(hwAttrs->rxChannelIndex | UDMA_PRI_SELECT,
-//                               UDMA_MODE_BASIC,
-//                               (void *)(hwAttrs->Instance + SSI_O_DR),
-//                               buf,
-//                               transaction->count);
+    /* Setup the RX transfer characteristics */
+    uDMAChannelControlSet(object->hdmarx, channelControlOptions);
+    object->hdmarx->XferHalfCpltCallback = NULL;
+    object->hdmarx->XferCpltCallback = SPITivaDMA_transferCallback;             //FIXME
+    /* Set the DMA error callback */
+    object->hdmarx->XferErrorCallback = SPI_DMAError;
+    /* Set the DMA AbortCpltCallback */
+    object->hdmarx->XferAbortCallback = NULL;
+
+    /* Setup the RX transfer buffers */
+    HAL_DMA_Start_IT(object->hdmarx, (uint32_t)&hwAttrs->Instance->DR, (uint32_t)buf, transaction->count);
 
     Log_print1(Diags_USER1,"SPI:(%p) DMA transfer enabled", hwAttrs->Instance);
 
@@ -228,23 +314,19 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
                             (UArg)transaction->txBuf,
                             (UArg)transaction->count);
 
-//    /* A lock is needed because we are accessing shared uDMA registers.*/
-//    MAP_IntDisable(hwAttrs->intNum);
+    /* Enable Rx DMA Request */
+    SET_BIT(hwAttrs->Instance->CR2, SPI_CR2_RXDMAEN);
 
-    /* Configure channel mapping */
-    hwAttrs->channelMappingFxn(hwAttrs->txChannelMappingFxnArg);
-    hwAttrs->channelMappingFxn(hwAttrs->rxChannelMappingFxnArg);
+    /* Check if the SPI is already enabled */
+    if((hwAttrs->Instance->CR1 &SPI_CR1_SPE) != SPI_CR1_SPE) {
+      /* Enable SPI peripheral */
+      __HAL_SPI_ENABLE(hwAttrs);
+    }
+    /* Enable the SPI Error Interrupt Bit */
+    SET_BIT(hwAttrs->Instance->CR2, SPI_CR2_ERRIE);
 
-//    /* Enable DMA Channels */
-//    MAP_uDMAChannelEnable(hwAttrs->txChannelIndex);
-//    MAP_uDMAChannelEnable(hwAttrs->rxChannelIndex);
-//
-//    if (SSIMODE(hwAttrs->Instance)) {
-//        MAP_SSIIntClear(hwAttrs->Instance, SSI_DMATX | SSI_DMARX);
-//        MAP_SSIIntEnable(hwAttrs->Instance, SSI_DMATX | SSI_DMARX);
-//    }
-//
-//    MAP_IntEnable(hwAttrs->intNum);
+    /* Enable Tx DMA Request */
+    SET_BIT(hwAttrs->Instance->CR2, SPI_CR2_TXDMAEN);
     return (true);
 }
 
@@ -254,9 +336,9 @@ bool SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
  */
 void SPITivaDMA_hwiFxn(uint32_t arg)
 {
-    SPI_Transaction           *msg;
-    SPITivaDMA_Object         *object = ((SPI_Handle)arg)->object;
-    SPITivaDMA_HWAttrs const  *hwAttrs = ((SPI_Handle)arg)->hwAttrs;
+    SPI_Transaction      *msg;
+    SPITivaDMA_Object    *object = ((SPI_Handle)arg)->object;
+    SPIDMA_HWAttrs const *hwAttrs = ((SPI_Handle)arg)->hwAttrs;
 
     Log_print1(Diags_USER2, "SPI:(%p) interrupt context start", hwAttrs->Instance);
 
@@ -310,8 +392,8 @@ void SPITivaDMA_init(SPI_Handle handle)
  */
 SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock)
 {
-    SPITivaDMA_Object         *object = handle->object;
-    SPITivaDMA_HWAttrs const  *hwAttrs = handle->hwAttrs;
+    SPITivaDMA_Object *object = handle->object;
+    SPIDMA_HWAttrs const *hwAttrs = handle->hwAttrs;
 
     /* Determine if the device index was already opened */
     if (object->isOpen == true) {
@@ -381,37 +463,15 @@ SPI_Handle SPITivaDMA_open(SPI_Handle handle, SPI_Params *params, uint32_t clock
 
     object->hdmatx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
     /* Configure the DMA handler for Transmission process */
-    object->hdmatx->Instance                 = hwAttrs->tx_uDMA_stream;
-    object->hdmatx->Init.Channel             = hwAttrs->txChannelIndex;
-    object->hdmatx->Init.FIFOMode            = DMA_FIFOMODE_DISABLE;
-    object->hdmatx->Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    object->hdmatx->Init.MemBurst            = DMA_MBURST_INC4;
-    object->hdmatx->Init.PeriphBurst         = DMA_PBURST_INC4;
-    object->hdmatx->Init.Direction           = DMA_MEMORY_TO_PERIPH;
-    object->hdmatx->Init.PeriphInc           = DMA_PINC_DISABLE;
-    object->hdmatx->Init.MemInc              = DMA_MINC_ENABLE;
-    object->hdmatx->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-    object->hdmatx->Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
-    object->hdmatx->Init.Mode                = DMA_NORMAL;
-    object->hdmatx->Init.Priority            = DMA_PRIORITY_LOW;
-    HAL_DMA_Init(object->hdmatx);
+    object->hdmatx->Instance = (DMA_Stream_TypeDef*)hwAttrs->uDMA_txStream;
+    object->hdmatx->Init.Channel = hwAttrs->uDMA_txChnl;
+    object->hdmatx->Parent = handle;
 
     object->hdmarx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
     /* Configure the DMA handler for Transmission process */
-    object->hdmarx->Instance                 = hwAttrs->rx_uDMA_stream;;
-    object->hdmarx->Init.Channel             = hwAttrs->rxChannelIndex;;
-    object->hdmarx->Init.FIFOMode            = DMA_FIFOMODE_DISABLE;
-    object->hdmarx->Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    object->hdmarx->Init.MemBurst            = DMA_MBURST_INC4;
-    object->hdmarx->Init.PeriphBurst         = DMA_PBURST_INC4;
-    object->hdmarx->Init.Direction           = DMA_PERIPH_TO_MEMORY;
-    object->hdmarx->Init.PeriphInc           = DMA_PINC_DISABLE;
-    object->hdmarx->Init.MemInc              = DMA_MINC_ENABLE;
-    object->hdmarx->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-    object->hdmarx->Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
-    object->hdmarx->Init.Mode                = DMA_NORMAL;
-    object->hdmarx->Init.Priority            = DMA_PRIORITY_HIGH;
-    HAL_DMA_Init(object->hdmarx);
+    object->hdmarx->Instance = (DMA_Stream_TypeDef*)hwAttrs->uDMA_rxStream;;
+    object->hdmarx->Init.Channel = hwAttrs->uDMA_rxChnl;
+    object->hdmarx->Parent = handle;
 
     /*##-3- Configure the NVIC for SPI #######################################*/
     /* NVIC for SPI */
@@ -453,7 +513,7 @@ void SPITivaDMA_serviceISR(SPI_Handle handle)
 bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
 {
     SPITivaDMA_Object         *object = handle->object;
-    SPITivaDMA_HWAttrs const  *hwattrs = handle->hwAttrs;
+    SPIDMA_HWAttrs const  *hwattrs = handle->hwAttrs;
 
     /* Check the transaction arguments */
     if ((transaction->count == 0) || (transaction->count > 1024) ||
@@ -469,9 +529,9 @@ bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
     }
 
     /* Check if a transfer is in progress */
-    MAP_IntDisable(hwattrs->intNum);
+//    MAP_IntDisable(hwattrs->intNum);
     if (object->transaction) {
-        MAP_IntEnable(hwattrs->intNum);
+//        MAP_IntEnable(hwattrs->intNum);
 
         Log_error1("SPI:(%p) transaction still in progress",
                    hwattrs->Instance);
@@ -483,7 +543,7 @@ bool SPITivaDMA_transfer(SPI_Handle handle, SPI_Transaction *transaction)
         /* Save the pointer to the transaction */
         object->transaction = transaction;
     }
-    MAP_IntEnable(hwattrs->intNum);
+//    MAP_IntEnable(hwattrs->intNum);
 
     SPITivaDMA_configDMA(handle, transaction);
 
@@ -523,7 +583,7 @@ static void SPITivaDMA_transferCallback(SPI_Handle handle,
     BaseType_t TaskWoken = pdFALSE;
 
     Log_print1(Diags_USER1, "SPI:(%p) posting transferComplete semaphore",
-                ((SPITivaDMA_HWAttrs const *)(handle->hwAttrs))->Instance);
+                ((SPIDMA_HWAttrs const *)(handle->hwAttrs))->Instance);
 
      xSemaphoreGiveFromISR(object->transferComplete, &TaskWoken);
 }

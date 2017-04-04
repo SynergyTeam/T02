@@ -129,8 +129,6 @@ extern "C" {
 /* Return codes for SPI_control() */
 #define SPITivaDMA_CMD_UNDEFINED    -1
 
-typedef uint32_t            SPIDataType;
-
 /* SPI function table pointer */
 extern const SPI_FxnTable SPITivaDMA_fxnTable;
 
@@ -144,7 +142,7 @@ extern const SPI_FxnTable SPITivaDMA_fxnTable;
  */
 typedef enum SPITivaDMA_FrameSize {
     SPITivaDMA_8bit  = SPI_DATASIZE_8BIT,
-    SPITivaDMA_16bit = SPI_DATASIZE_16BIT
+    SPITivaDMA_16bit = SPI_DATASIZE_16BIT,
 } SPITivaDMA_FrameSize;
 
 /*!
@@ -159,32 +157,34 @@ typedef enum SPITivaDMA_FrameSize {
  *  A sample structure is shown below:
  *  @code
  *  const SPITivaDMA_HWAttrs spiTivaDMAobjects[] = {
- *      {   // Used by TivaWare (Tiva devices!!!)
- *          SSI0_BASE,
- *          INT_SSI0,
+ *      {
+ *          SPI5,
+ *          SPI5_IRQn,
  *          &scratchBuffer[0],
- *          0,
- *          UDMA_CHANNEL_SSI0RX,
- *          UDMA_CHANNEL_SSI0TX,
- *          uDMAChannelAssign,
- *          UDMA_CH10_SSI0RX,
- *          UDMA_CH11_SSI0TX
+ *          0xFF,
+ *          DMA2_Stream6,
+ *          DMA_CHANNEL_7,
+ *          DMA2_Stream6_IRQn,
+ *          DMA2_Stream5,
+ *          DMA_CHANNEL_7,
+ *          DMA2_Stream5_IRQn,
  *      },
- *      {   // Used by MWare (Concerto devices!!!)
- *          SSI1_BASE,
- *          INT_SSI1,
+ *      {
+ *          SPI3,
+ *          SPI3_IRQn,
  *          &scratchBuffer[1],
- *          0,
- *          UDMA_CHANNEL_SSI1RX,
- *          UDMA_CHANNEL_SSI1TX,
- *          uDMAChannel24_31SelectDefault,
- *          UDMA_CHAN24_DEF_SSI1RX_M,
- *          UDMA_CHAN25_DEF_SSI1TX_M
+ *          0x00,
+ *          DMA1_Stream5,
+ *          DMA_CHANNEL_0,
+ *          DMA1_Stream5_IRQn,
+ *          DMA1_Stream2,
+ *          DMA_CHANNEL_0,
+ *          DMA1_Stream2_IRQn
  *      },
  *  };
  *  @endcode
  */
-typedef struct SPITivaDMA_HWAttrs {
+typedef struct SPIDMA_HWAttrs {
     /*! SSI Peripheral's base address */
     SPI_TypeDef         *Instance;
     /*! SSI TivaDMA Peripheral's interrupt vector */
@@ -195,27 +195,20 @@ typedef struct SPITivaDMA_HWAttrs {
     /*! Default TX value if txBuf == NULL */
     uint32_t            defaultTxBufValue;
 
-    /* Номер потока передачи uDMA */
-    DMA_Stream_TypeDef  *tx_uDMA_stream;
+    /*! Поток передачи uDMA */
+    uint32_t            uDMA_txStream;
     /*! Номер канала передачи uDMA */
-    uint32_t            txChannelIndex;
-    /*! Вектор uDMA прерывания канала передачи */
+    uint32_t            uDMA_txChnl;
+    /*! Прерывание передачи uDMA */
     uint32_t            uDMA_txInt;
 
-    /* Номер потока приема uDMA */
-    DMA_Stream_TypeDef  *rx_uDMA_stream;
-    /*! uDMA controlTable channel index */
-    uint32_t            rxChannelIndex;
-    /*! uDMA вектор прерывания канала приема */
+    /*! Поток приема uDMA */
+    uint32_t            uDMA_rxStream;
+    /*! Номер канала приема uDMA */
+    uint32_t            uDMA_rxChnl;
+    /*! Прерывание приема uDMA */
     uint32_t            uDMA_rxInt;
-
-    /*! uDMA mapping function that maps the SPI trigger to the DMA channel */
-    void  (*channelMappingFxn)(SPIDataType);
-    /*! uDMA MappingFxn arg to map the Tx channel */
-    uint32_t          rxChannelMappingFxnArg;
-    /*! uDMA MappingFxn arg to map the Rx channel */
-    uint32_t          txChannelMappingFxnArg;
-} SPITivaDMA_HWAttrs;
+} SPIDMA_HWAttrs;
 
 /*!
  *  @brief  SPITivaDMA Object
