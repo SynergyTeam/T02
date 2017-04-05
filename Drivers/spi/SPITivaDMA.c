@@ -80,11 +80,11 @@ extern const SPI_Params SPI_defaultParams;
  */
 const uint32_t dmaTxConfig[] = {
     // 8 bit
-    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_BYTE     | DMA_MDATAALIGN_BYTE     | DMA_NORMAL | DMA_PRIORITY_LOW,
+    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_PDATAALIGN_BYTE     | DMA_MDATAALIGN_BYTE     | DMA_NORMAL | DMA_PRIORITY_LOW,
     // 16 bit
-    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_HALFWORD | DMA_MDATAALIGN_HALFWORD | DMA_NORMAL | DMA_PRIORITY_LOW,
+    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_PDATAALIGN_HALFWORD | DMA_MDATAALIGN_HALFWORD | DMA_NORMAL | DMA_PRIORITY_LOW,
     // 32 bit
-    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_WORD     | DMA_MDATAALIGN_WORD     | DMA_NORMAL | DMA_PRIORITY_LOW,
+    DMA_MEMORY_TO_PERIPH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_PDATAALIGN_WORD     | DMA_MDATAALIGN_WORD     | DMA_NORMAL | DMA_PRIORITY_LOW,
 };
 
 /*
@@ -94,11 +94,11 @@ const uint32_t dmaTxConfig[] = {
  */
 const uint32_t dmaRxConfig[] = {
     // 8 bit
-    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_BYTE     | DMA_MDATAALIGN_BYTE     | DMA_NORMAL | DMA_PRIORITY_LOW,
+    DMA_PERIPH_TO_MEMORY | DMA_PRIORITY_HIGH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_PDATAALIGN_BYTE     | DMA_MDATAALIGN_BYTE     | DMA_NORMAL | DMA_PRIORITY_LOW,
     // 16 bit
-    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_HALFWORD | DMA_MDATAALIGN_HALFWORD | DMA_NORMAL | DMA_PRIORITY_LOW,
+    DMA_PERIPH_TO_MEMORY | DMA_PRIORITY_HIGH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_PDATAALIGN_HALFWORD | DMA_MDATAALIGN_HALFWORD | DMA_NORMAL | DMA_PRIORITY_LOW,
     // 32 bit
-    DMA_PERIPH_TO_MEMORY | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_WORD     | DMA_MDATAALIGN_WORD     | DMA_NORMAL | DMA_PRIORITY_LOW,
+    DMA_PERIPH_TO_MEMORY | DMA_PRIORITY_HIGH | DMA_PINC_DISABLE | DMA_MINC_ENABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_PDATAALIGN_WORD     | DMA_MDATAALIGN_WORD     | DMA_NORMAL | DMA_PRIORITY_LOW,
 };
 
 /*
@@ -107,11 +107,11 @@ const uint32_t dmaRxConfig[] = {
  */
 const uint32_t dmaNullConfig[] = {
     // 8 bit
-    DMA_PINC_DISABLE | DMA_MINC_DISABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_BYTE     | DMA_MDATAALIGN_BYTE     | DMA_NORMAL | DMA_PRIORITY_LOW,
+    DMA_PINC_DISABLE | DMA_MINC_DISABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_PDATAALIGN_BYTE     | DMA_MDATAALIGN_BYTE     | DMA_NORMAL | DMA_PRIORITY_LOW,
     // 16 bit
-    DMA_PINC_DISABLE | DMA_MINC_DISABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_HALFWORD | DMA_MDATAALIGN_HALFWORD | DMA_NORMAL | DMA_PRIORITY_LOW,
+    DMA_PINC_DISABLE | DMA_MINC_DISABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_PDATAALIGN_HALFWORD | DMA_MDATAALIGN_HALFWORD | DMA_NORMAL | DMA_PRIORITY_LOW,
     // 32 bit
-    DMA_PINC_DISABLE | DMA_MINC_DISABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_FIFO_THRESHOLD_FULL | DMA_PDATAALIGN_WORD     | DMA_MDATAALIGN_WORD     | DMA_NORMAL | DMA_PRIORITY_LOW,
+    DMA_PINC_DISABLE | DMA_MINC_DISABLE | DMA_MBURST_INC4 | DMA_PBURST_INC4 | DMA_FIFOMODE_DISABLE | DMA_PDATAALIGN_WORD     | DMA_MDATAALIGN_WORD     | DMA_NORMAL | DMA_PRIORITY_LOW,
 };
 
 /**
@@ -192,17 +192,8 @@ static void uDMAChannelControlSet(DMA_HandleTypeDef *chnl, uint32_t control) {
         }
     }
 
-    /* Get the CR register value */
-    tmp = chnl->Instance->CR;
-
-    /* Clear CHSEL, MBURST, PBURST, PL, MSIZE, PSIZE, MINC, PINC, CIRC, DIR, CT and DBM bits */
-    tmp &= ((uint32_t)~(DMA_SxCR_CHSEL | DMA_SxCR_MBURST | DMA_SxCR_PBURST | \
-                        DMA_SxCR_PL    | DMA_SxCR_MSIZE  | DMA_SxCR_PSIZE  | \
-                        DMA_SxCR_MINC  | DMA_SxCR_PINC   | DMA_SxCR_CIRC   | \
-                        DMA_SxCR_DIR   | DMA_SxCR_CT     | DMA_SxCR_DBM));
-
     /* Prepare the DMA Stream configuration */
-    tmp |= control;
+    tmp = (chnl->Init.Channel | control);
 
     /* Write to DMA Stream CR register */
     chnl->Instance->CR = tmp;
@@ -297,6 +288,26 @@ bool SPIDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
     SPIDMA_Object         *object = handle->object;
     SPIDMA_HWAttrs const  *hwAttrs = handle->hwAttrs;
 
+    if (transaction->rxBuf) {
+        channelControlOptions = dmaRxConfig[object->frameSize];
+        buf = transaction->rxBuf;
+    }
+    else {
+        channelControlOptions = dmaNullConfig[object->frameSize];
+        channelControlOptions |= (DMA_PERIPH_TO_MEMORY | DMA_PRIORITY_HIGH);
+        buf = hwAttrs->scratchBufPtr;
+    }
+
+    /* Setup the RX transfer characteristics */
+    uDMAChannelControlSet(object->hdmarx, channelControlOptions);
+    object->hdmarx->XferHalfCpltCallback = NULL;
+    object->hdmarx->XferCpltCallback = SPI_DMACplt;
+    object->hdmarx->XferErrorCallback = SPI_DMAError;
+    object->hdmarx->XferAbortCallback = NULL;
+    object->hdmatx->Init.Direction = DMA_PERIPH_TO_MEMORY;
+    /* Setup the RX transfer buffers */
+    HAL_DMA_Start_IT(object->hdmarx, (uint32_t)&hwAttrs->Instance->DR, (uint32_t)buf, transaction->count);
+
     if (transaction->txBuf) {
         channelControlOptions = dmaTxConfig[object->frameSize];
         buf = transaction->txBuf;
@@ -317,26 +328,6 @@ bool SPIDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
     object->hdmatx->Init.Direction = DMA_MEMORY_TO_PERIPH;
     /* Enable the Tx DMA Stream */
     HAL_DMA_Start_IT(object->hdmatx, (uint32_t)buf, (uint32_t)&hwAttrs->Instance->DR, transaction->count);
-
-    if (transaction->rxBuf) {
-        channelControlOptions = dmaRxConfig[object->frameSize];
-        buf = transaction->rxBuf;
-    }
-    else {
-        channelControlOptions = dmaNullConfig[object->frameSize];
-        channelControlOptions |= DMA_PERIPH_TO_MEMORY;
-        buf = hwAttrs->scratchBufPtr;
-    }
-
-    /* Setup the RX transfer characteristics */
-    uDMAChannelControlSet(object->hdmarx, channelControlOptions);
-    object->hdmarx->XferHalfCpltCallback = NULL;
-    object->hdmarx->XferCpltCallback = SPI_DMACplt;
-    object->hdmarx->XferErrorCallback = SPI_DMAError;
-    object->hdmarx->XferAbortCallback = NULL;
-    object->hdmatx->Init.Direction = DMA_PERIPH_TO_MEMORY;
-    /* Setup the RX transfer buffers */
-    HAL_DMA_Start_IT(object->hdmarx, (uint32_t)&hwAttrs->Instance->DR, (uint32_t)buf, transaction->count);
 
     Log_print1(Diags_USER1,"SPI:(%p) DMA transfer enabled", hwAttrs->Instance);
 
@@ -446,7 +437,7 @@ SPI_Handle SPIDMA_open(SPI_Handle handle, SPI_Params *params)
 
     /* Configure : NSS management */
     tmp = (((params->nss >> 16U) & SPI_CR2_SSOE) | SPI_TIMODE_DISABLE);
-    hwAttrs->Instance->CR2, tmp;
+    hwAttrs->Instance->CR2 = tmp;
 
     /* Activate the SPI mode (Make sure that I2SMOD bit in I2SCFGR register is reset) */
     CLEAR_BIT(hwAttrs->Instance->I2SCFGR, SPI_I2SCFGR_I2SMOD);
