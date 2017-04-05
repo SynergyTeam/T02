@@ -2,7 +2,7 @@
 #define __ARCHIVE__
 
 #include "struct.h"
-#include "sflash/ext_memory.h"
+#include "sflash/flash_25xxx.h"
 #include "sflash/circ_memory.h"
 
 //Информация о состоянии архива

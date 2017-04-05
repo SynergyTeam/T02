@@ -9,7 +9,8 @@
 #include "usb_device.h"
 #include "peripherals/inp_out.h"
 #include "console/console.h"
-#include "sflash/ext_memory.h"
+#include "Drivers/spi_bus.h"
+#include "sflash/flash_25xxx.h"
 
 //переменные
 osThreadId InpOutTaskHandle;
@@ -26,7 +27,7 @@ void InputOutputTask(void const * argument) {
     osDelay(3000);
     ConsoleMes("Device starting...\r\n");
     HW_initSPI(180);
-    flash_init(&flash_size);
+    flash_size = flash_init(ssi_FLASH);
 
     for(;;)
     {

@@ -7,7 +7,7 @@
 #include <Drivers/spi/SPI.h>
 #include <Drivers/spi/SPITivaDMA.h>
 #include "Drivers/spi_bus.h"
-#include "sflash/ext_memory.h"
+#include "sflash/flash_25xxx.h"
 
 //------------------------------------------------------------------------------
 /* SPI objects */
@@ -94,7 +94,7 @@ void HW_initSPI(uint32_t clock) {
   * @retval None
   */
 void FLASH_IRQHandler(void) {
-    HAL_SPI_IRQHandler(Flash.ssi_bus);
+    HAL_SPI_IRQHandler(Flash.handle);
 }
 
 /**
@@ -103,7 +103,7 @@ void FLASH_IRQHandler(void) {
   * @retval None
   */
 void FLASH_DMA_RX_IRQHandler(void) {
-    SPIDMA_Object *object = Flash.ssi_bus->object;
+    SPIDMA_Object *object = Flash.handle->object;
     HAL_DMA_IRQHandler(object->hdmarx);
 }
 
@@ -113,7 +113,7 @@ void FLASH_DMA_RX_IRQHandler(void) {
   * @retval None
   */
 void FLASH_DMA_TX_IRQHandler(void) {
-    SPIDMA_Object *object = Flash.ssi_bus->object;
+    SPIDMA_Object *object = Flash.handle->object;
     HAL_DMA_IRQHandler(object->hdmatx);
 }
 

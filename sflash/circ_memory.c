@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include "stm32f4xx_hal.h"
 
-#include "ext_memory.h"
+#include "flash_25xxx.h"
 #include "circ_memory.h"
 
 #define ASSERT                      assert_param
