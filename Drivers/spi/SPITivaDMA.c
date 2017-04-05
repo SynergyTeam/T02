@@ -430,7 +430,7 @@ SPI_Handle SPIDMA_open(SPI_Handle handle, SPI_Params *params)
     /* SPIx CR1 & CR2 Configuration */
     /* Configure : SPI Mode, Communication Mode, Data size, Clock polarity and phase, NSS management,
     Communication speed, First bit and CRC calculation state */
-    tmp = (params->mode | SPI_DIRECTION_2LINES | params->dataSize |
+    tmp = (params->mode | SPI_DIRECTION_2LINES | object->frameSize |
            params->frameFormat | (params->nss & SPI_CR1_SSM) |
            params->bitRate | params->firstBit | SPI_CRCCALCULATION_DISABLE);
     hwAttrs->Instance->CR1 = tmp;

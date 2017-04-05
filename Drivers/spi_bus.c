@@ -94,7 +94,7 @@ void HW_initSPI(uint32_t clock) {
   * @retval None
   */
 void FLASH_IRQHandler(void) {
-    HAL_SPI_IRQHandler(Flash.handle);
+    HAL_SPI_IRQHandler(Flash.ssi_bus);
 }
 
 /**
@@ -103,7 +103,8 @@ void FLASH_IRQHandler(void) {
   * @retval None
   */
 void FLASH_DMA_RX_IRQHandler(void) {
-    HAL_DMA_IRQHandler(Flash.handle->hdmarx);
+    SPIDMA_Object *object = Flash.ssi_bus->object;
+    HAL_DMA_IRQHandler(object->hdmarx);
 }
 
 /**
@@ -112,7 +113,8 @@ void FLASH_DMA_RX_IRQHandler(void) {
   * @retval None
   */
 void FLASH_DMA_TX_IRQHandler(void) {
-    HAL_DMA_IRQHandler(Flash.handle->hdmatx);
+    SPIDMA_Object *object = Flash.ssi_bus->object;
+    HAL_DMA_IRQHandler(object->hdmatx);
 }
 
 
