@@ -67,8 +67,18 @@ void flash_state_machine_callback(void) {
 uint32_t flash_init(uint32_t *rsize) {
     SPI_Handle sflash;
 
-    sflash = SPI_open(ssi_FLASH, NULL);
+    Flash.ssi_bus = SPI_open(ssi_FLASH, NULL);
     UNUSED(sflash);
+
+    // команда
+    Flash.cmdbuf[0] = JEDEC_Code;
+    Flash.ssi.txBuf = Flash.cmdbuf;
+    Flash.ssi.rxBuf = Flash.cmdbuf;
+    Flash.ssi.count = 4;
+    // ответ
+    Flash.size = 0;
+
+    SPI_transfer(Flash.ssi_bus, &Flash.ssi);
 
     Flash.handle = pvPortMalloc(sizeof(SPI_HandleTypeDef));
     memset(Flash.handle, 0x00, sizeof(SPI_HandleTypeDef));

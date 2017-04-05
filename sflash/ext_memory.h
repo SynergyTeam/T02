@@ -42,6 +42,8 @@
 //структура данных драйвера памяти
 typedef struct t_FlTrans {
     SPI_HandleTypeDef*  handle;         // SPI шина
+    SPI_Handle          ssi_bus;
+    SPI_Transaction     ssi;
     SemaphoreHandle_t   gate;           // mutex доступа
     SemaphoreHandle_t   done;           // семафор завершения операции
     uint8_t             cmdbuf[5];      // буфер команды

@@ -384,6 +384,7 @@ SPI_Handle SPIDMA_open(SPI_Handle handle, SPI_Params *params)
 {
     SPIDMA_Object *object = handle->object;
     SPIDMA_HWAttrs const *hwAttrs = handle->hwAttrs;
+    uint32_t tmp;
 
     /* Determine if the device index was already opened */
     if (object->isOpen == true) {
@@ -438,12 +439,14 @@ SPI_Handle SPIDMA_open(SPI_Handle handle, SPI_Params *params)
     /* SPIx CR1 & CR2 Configuration */
     /* Configure : SPI Mode, Communication Mode, Data size, Clock polarity and phase, NSS management,
     Communication speed, First bit and CRC calculation state */
-    WRITE_REG(hwAttrs->Instance->CR1, (params->mode | SPI_DIRECTION_2LINES | params->dataSize |
-                                       params->frameFormat | (params->nss & SPI_CR1_SSM) |
-                                       params->bitRate | params->firstBit  | SPI_CRCCALCULATION_DISABLE) );
+    tmp = (params->mode | SPI_DIRECTION_2LINES | params->dataSize |
+           params->frameFormat | (params->nss & SPI_CR1_SSM) |
+           params->bitRate | params->firstBit | SPI_CRCCALCULATION_DISABLE);
+    hwAttrs->Instance->CR1 = tmp;
 
     /* Configure : NSS management */
-    WRITE_REG(hwAttrs->Instance->CR2, (((params->nss >> 16U) & SPI_CR2_SSOE) | SPI_TIMODE_DISABLE));
+    tmp = (((params->nss >> 16U) & SPI_CR2_SSOE) | SPI_TIMODE_DISABLE);
+    hwAttrs->Instance->CR2, tmp;
 
     /* Activate the SPI mode (Make sure that I2SMOD bit in I2SCFGR register is reset) */
     CLEAR_BIT(hwAttrs->Instance->I2SCFGR, SPI_I2SCFGR_I2SMOD);

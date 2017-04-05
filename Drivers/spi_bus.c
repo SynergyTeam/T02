@@ -7,6 +7,7 @@
 #include <Drivers/spi/SPI.h>
 #include <Drivers/spi/SPITivaDMA.h>
 #include "Drivers/spi_bus.h"
+#include "sflash/ext_memory.h"
 
 //------------------------------------------------------------------------------
 /* SPI objects */
@@ -55,22 +56,27 @@ const SPI_Config SPI_config[] = {
  * Инициализация всех SPI интерфейсов
  */
 void HW_initSPI(uint32_t clock) {
-    // SSI0 - FRAM
-//    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
-//    MAP_GPIOPinConfigure(GPIO_PA2_SSI0CLK);
-//    MAP_GPIOPinConfigure(GPIO_PA3_SSI0FSS);
-//    MAP_GPIOPinConfigure(GPIO_PA4_SSI0XDAT0);
-//    MAP_GPIOPinConfigure(GPIO_PA5_SSI0XDAT1);
-//    MAP_GPIOPinTypeSSI(GPIO_PORTA_BASE, FRAM_MISO | FRAM_MOSI | FRAM_FSS | FRAM_SCLK);
-//
-//    // SSI2 - память / WiFi
-//    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI2);
-//    MAP_GPIOPinConfigure(GPIO_PD0_SSI2XDAT1);
-//    MAP_GPIOPinConfigure(GPIO_PD1_SSI2XDAT0);
-//    MAP_GPIOPinConfigure(GPIO_PD2_SSI2FSS);
-//    MAP_GPIOPinConfigure(GPIO_PD3_SSI2CLK);
-//    MAP_GPIOPinTypeSSI(GPIO_PORTD_BASE, SPI_SCLK | SPI_FSS | SPI_MOSI | SPI_MISO);
-//
+    GPIO_InitTypeDef  GPIO_InitStruct;
+
+    // SPI5 - FLASH
+    /* Peripheral clock enable */
+    FLASH_BUS_ENABLE();
+    FLASH_CLK_ENABLE();
+    FLASH_DMAx_ENABLE();
+
+    /**SPI5 GPIO Configuration
+    PE11     ------> SPI5_NSS
+    PE12     ------> SPI5_SCK
+    PE13     ------> SPI5_MISO
+    PE14     ------> SPI5_MOSI
+    */
+    GPIO_InitStruct.Pin = FLASH_NSS_PIN | FLASH_SCK_PIN | FLASH_MISO_PIN | FLASH_MOSI_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF6_SPI5;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
 //    // SSI3 - PRINTER
 //    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI3);
 //    MAP_GPIOPinConfigure(GPIO_PQ0_SSI3CLK);
@@ -78,28 +84,35 @@ void HW_initSPI(uint32_t clock) {
 //    MAP_GPIOPinConfigure(GPIO_PQ3_SSI3XDAT1);
 //    MAP_GPIOPinTypeSSI(GPIO_PORTQ_BASE, PRINTER_SDOUT | PRINTER_SDIN | PRINTER_SCLK);
 //
-//    uDMAInit();
     SPI_init();
 }
 
-/*------------------------------------------------------------------------------
- * Обработчик прерывания
- */
-void SSI0IntHandler(void) {
-//    SPI_serviceISR(SSI[ssi_FRAM]);
+
+/**
+  * @brief  This function handles SPI interrupt request.
+  * @param  None
+  * @retval None
+  */
+void FLASH_IRQHandler(void) {
+    HAL_SPI_IRQHandler(Flash.handle);
 }
 
-/*------------------------------------------------------------------------------
- * Обработчик прерывания
- */
-void SSI2IntHandler (void) {
-//    SPI_serviceISR(SSI[ssi_FLASH_WiFi]);
+/**
+  * @brief  This function handles DMA Rx interrupt request.
+  * @param  None
+  * @retval None
+  */
+void FLASH_DMA_RX_IRQHandler(void) {
+    HAL_DMA_IRQHandler(Flash.handle->hdmarx);
 }
 
-/*------------------------------------------------------------------------------
- * Обработчик прерывания SSI2 шины
- */
-void SSI3IntHandler(void) {
-//    SPI_serviceISR(SSI[ssi_PRINTER]);
+/**
+  * @brief  This function handles DMA Tx interrupt request.
+  * @param  None
+  * @retval None
+  */
+void FLASH_DMA_TX_IRQHandler(void) {
+    HAL_DMA_IRQHandler(Flash.handle->hdmatx);
 }
+
 
