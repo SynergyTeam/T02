@@ -37,7 +37,7 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
-
+#include "console/console.h"
 /*----------------------------------------------------------------------------*/
 // локальная копия структуры из файла stm32f4xx_hal_dma.c
 typedef struct {
@@ -334,10 +334,10 @@ bool SPIDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction)
     Log_print5(Diags_USER2,"SPI:(%p) DMA transaction: %p, "
                            "rxBuf: %p; txBuf: %p; Count: %d",
                             hwAttrs->Instance,
-                            (UArg)transaction,
-                            (UArg)transaction->rxBuf,
-                            (UArg)transaction->txBuf,
-                            (UArg)transaction->count);
+                            (uint32_t)transaction,
+                            (uint32_t)transaction->rxBuf,
+                            (uint32_t)transaction->txBuf,
+                            (uint32_t)transaction->count);
 
     object->transaction = transaction;
 
@@ -398,7 +398,7 @@ SPI_Handle SPIDMA_open(SPI_Handle handle, SPI_Params *params)
 
     Log_print2(Diags_USER2,"SPI:(%p) DMA buffer incrementation size: %s",
                             hwAttrs->Instance,
-                           (object->frameSize) ? (UArg)"16-bit" : (UArg)"8-bit");
+                           (object->frameSize) ? "16-bit" : "8-bit");
 
     /* Store the current mode */
     object->transferMode = params->transferMode;
@@ -442,8 +442,8 @@ SPI_Handle SPIDMA_open(SPI_Handle handle, SPI_Params *params)
     /* Activate the SPI mode (Make sure that I2SMOD bit in I2SCFGR register is reset) */
     CLEAR_BIT(hwAttrs->Instance->I2SCFGR, SPI_I2SCFGR_I2SMOD);
 
-    Log_print3(Diags_USER1, "SPI:(%p) CPU freq: %d; SPI freq to %d",
-                             hwAttrs->Instance, freq.lo, params->bitRate);
+    Log_print3(Diags_USER1, "SPI:(%p) CPU freq: %d; SPI freq divisr %d",
+                             hwAttrs->Instance, SystemCoreClock, params->bitRate);
 
     object->hdmatx = pvPortMalloc(sizeof(DMA_HandleTypeDef));
     /* Configure the DMA handler for Transmission process */
