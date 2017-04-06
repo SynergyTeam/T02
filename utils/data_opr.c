@@ -2,8 +2,8 @@
 #include <inttypes.h>
 #include <string.h>
 #include <math.h>
-#include "console/ustdlib.h"
-#include "data_opr.h"
+#include "utils/data_opr.h"
+#include "utils/ustdlib.h"
 
 //-------------------------------------------------------------------------------
 // поиск N-го (Num) байта (Byte) в массиве d1 размером Len
@@ -110,9 +110,9 @@ void IntToBCD(char *buf, char aChr, int Vlm) {
 	if(Vlm < 0) Vlm = -Vlm;
 	while (aChr > 0) {
 		--aChr;
-		buf[aChr] = Vlm % 10;
+		buf[(uint8_t)aChr] = Vlm % 10;
 		Vlm = Vlm / 10;
-		buf[aChr] |= (Vlm % 10) << 4;
+		buf[(uint8_t)aChr] |= (Vlm % 10) << 4;
 		Vlm = Vlm / 10;
 	}
 }
@@ -130,4 +130,75 @@ int BCDToInt(char *str, char Len) {
 		Value += (*str++ & 0x0F);
 	}
 	return Value;
+}
+
+//------------------------------------------------------------------------------
+//рассчет контрольной суммы по алгоритму CRC8
+uint8_t CRCx08(uint8_t *data, int32_t len) {
+    uint8_t bt, byte, crc = 0x00;
+    while (len > 0) {
+        byte = *data++;
+        --len;
+        for (bt = 0; bt < 8; bt++) {
+            if ((byte ^ crc) & 0x01) crc = ((crc ^ 0x18) >> 1) | 0x80;
+            else crc >>= 1;
+            byte >>= 1;
+        }
+    }
+    return crc;
+}
+
+//------------------------------------------------------------------------------
+//вычисление контрольной суммы по полиному 1021
+uint16_t CRCx1021(uint8_t *data, int32_t len) {
+    return (block1021(0xFFFF, (uint8_t*)data, len));
+}
+
+/*------------------------------------------------------------------------------
+ * ѕодсчет контрольной суммы блока данных
+ * CRC - начальное значение, data - указатель на буфер, len - размер
+ */
+uint16_t block1021(uint16_t prvCRC, uint8_t *data, int32_t len) {
+    while (len > 0) {
+        uint8_t bt, Byte = *data++;
+        for (bt = 0; bt < 8; bt++) {
+            if (((Byte << (bt + 8)) ^ prvCRC) & 0x8000) prvCRC = (prvCRC << 1) ^ 0x1021;
+            else prvCRC <<= 1;
+        }
+        --len;
+    }
+    return prvCRC;
+}
+/*------------------------------------------------------------------------------
+ * ¬ычисление контрольной суммы дл€ системы измерени€ давлени€ в шинах
+ * PRESSURE PRO
+ */
+uint8_t CRC_PRESS(uint8_t *data, int32_t len) {
+    uint8_t result = 0;
+    uint8_t i;
+    for (i=0; i < len; i++) {
+        result += *data++;
+    }
+    result = (~(result & 0xff) + 1) & 0xFF;
+    return result;
+}
+/*------------------------------------------------------------------------------
+ * CRC16 for MODBUS RTU protocol
+*/
+uint16_t CRC_MODBUS(char *data, int32_t len) {
+    uint16_t result,tresult;
+    uint8_t i,j;
+    result = 0xFFFF;
+
+    for (i = 0; i < len; i++) {
+        result = result ^ data[i];
+        for (j = 0; j < 8; j++) {
+            tresult = result;
+            result = result >> 1;
+            if (tresult & 0x0001) {
+                result = result ^ 0xA001;
+            }
+        }
+    }
+    return result;
 }
