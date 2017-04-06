@@ -30,6 +30,9 @@
 #define WINBOND                     (0xEF)
 #define BUS_MODE                    (0x40)
 
+#define GIGADEVICE                  (0xC8)
+#define GD_SUBV                     (0x40)
+
 #define debuglog(...)
 
 //------------------------------------------------------------------------------
@@ -146,6 +149,14 @@ static uint32_t flash_size(t_FlTrans *flash) {
     if (flash->cmdbuf[1] == WINBOND && flash->cmdbuf[2] == BUS_MODE) {
         debuglog("Flash: Winbond W25xxx series\r\n");
         fsize = 1;
+    }
+    else
+    if (flash->cmdbuf[1] == GIGADEVICE && flash->cmdbuf[2] == GD_SUBV) {
+        debuglog("Flash: Gigadevice GD25xxx series\r\n");
+        if (flash->cmdbuf[3] == 0x24) {
+            flash->cmdbuf[3] = 0x18;
+            fsize = 1;
+        }
     }
     else {
         debuglog("Flash: unknown vendor!\r\n");
