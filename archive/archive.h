@@ -36,19 +36,19 @@ typedef struct rec_header {
 extern archive_str Archive[MAX_ARCHIVES];
 
 /* функции */
-void ArchiveChipInit(void);
-char ArchiveGetBorder(char *percent, uint32_t *bData);
-void ArchiveSetBorder(sys_config *cfg);
-uint32_t ArchiveCalcSize(char aNum, uint32_t start, uint16_t *PacketNum);
-uint32_t ArchiveClean(char anum);
-void ArchiveTrDelay(uint16_t *timer, char aNum, char traffic_ctrl);
-uint32_t ArchiveGetInfo(char aNum, a_info used);
+extern void ArchiveChipInit(void);
+extern uint8_t ArchiveGetBorder(uint8_t *percent, uint32_t *bData);
+extern void ArchiveSetBorder(sys_config *cfg);
+extern uint32_t ArchiveCalcSize(uint8_t aNum, uint32_t start, uint16_t *PacketNum);
+extern uint32_t ArchiveClean(uint8_t anum);
+extern void ArchiveTrDelay(uint16_t *timer, uint8_t aNum, uint8_t traffic_ctrl);
+extern uint32_t ArchiveGetInfo(uint8_t aNum, a_info used);
 
-int SavePacket(char aNum, char *pData, uint16_t pLen);
-int ReadArchivePacket(uint16_t aNum, char *pData, uint16_t pLen);
-int DelArchivePacket(char aNum, uint16_t packet);
+extern int32_t SavePacket(uint8_t aNum, uint8_t *pData, uint16_t pLen);
+extern int32_t ReadArchivePacket(uint8_t aNum, uint8_t *pData, uint16_t blen);
+extern int32_t DelArchivePacket(uint8_t aNum, uint16_t packet);
 
-int ArchiveTxtInfo(char anum, char *msg);
+extern int32_t ArchiveTxtInfo(uint8_t anum, char *msg);
 
 #endif /* __ARCHIVE__ */
 

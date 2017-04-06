@@ -146,13 +146,6 @@ typedef struct {
     uint16_t    volume_adc;
 } lls_cfg;
 
-typedef enum con_cfg {
-    LOG = 1,
-    CONFIG,
-    SYSTEM,
-    BRIDGE
-} con_cfg;
-
 //структура конфигурационных параметров
 typedef struct {
     uint16_t id_len;
@@ -282,7 +275,6 @@ typedef struct {
 //структура событий
 typedef struct sys_events {
     uint32_t pcktSource;
-    con_cfg  con_mode;
     uint8_t  saving_tmr;
     unsigned restart_device:1;
     unsigned device_cfg:1;

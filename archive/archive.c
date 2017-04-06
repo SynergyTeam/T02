@@ -11,12 +11,15 @@
 //#include "cpu_resource/watchdog.h"
 #include "Drivers/spi_bus.h"
 #include "archive/archive.h"
-//#include "sflash/queue_mng.h"
-//#include "communication/protocol_descr.h"
-//#include "navigation/navigation.h"
-//#include "dataoperation.h"
-//#include "time_app.h"
+#include "utils/data_opr.h"
 #include "console/console.h"
+
+//FIXME - временна€ затычка
+#define QUEUE_LOCK(aN)              UNUSED(aN)
+#define QUEUE_UNLOCK(aN)            UNUSED(aN)
+#define wdog_Clear()
+#define zipPacket(mBuf, pData)      (10)
+#define unzipPacket(pData, rec)     (10)
 
 //стандартные размеры пакетов хран€щийс€ в архиве
 #define MIN_ARCH_SIZE				(MIN_OUT_PACKET_SIZE + sizeof(ARec))
@@ -60,10 +63,10 @@ void ArchiveChipInit(void) {
  * ≈сли все указатели попадают в соответствующие окна архива возращает 0,
  * если осуществл€лась коррекци€ указател€ возращает 1
  */
-char ArchiveGetBorder(uint8_t *percent, uint32_t *bData) {
+uint8_t ArchiveGetBorder(uint8_t *percent, uint32_t *bData) {
 	uint32_t  arcSize[MAX_ARCHIVES], maxSize, indx;
 	archive_str *volatile arc;
-	char aNum;
+	uint8_t aNum;
 
 	//вычисление размера каждого сегмента
 	maxSize = 0;
@@ -193,7 +196,7 @@ static uint32_t checking_sequence(uint16_t *PacketNum, archive_str *arch, char *
 				tLen = 0; break;
 			}
             // ¬рем€ следующего пакета должно быть больше или равно времени предыдущего пакета
-            if (arch->timecode != NULL) {
+            if (arch->timecode != 0x0000) {
                 if (timecode < arch->timecode) {
                     debuglog("Archive: Incorrect sequence the time of packets!\r\n");
                     tLen = 0; break;
@@ -217,7 +220,7 @@ static uint32_t checking_sequence(uint16_t *PacketNum, archive_str *arch, char *
 //------------------------------------------------------------------------------
 // Cтирание архива во внешней пам€ти. anum - номер архива
 // ¬озвращает указатель на начало архива
-#pragma FUNCTION_OPTIONS (ArchiveClean, "--opt_level=0")
+//#pragma FUNCTION_OPTIONS (ArchiveClean, "--opt_level=0")                      //FIXME опци€ выдает ошибку на данной версии компил€тора
 uint32_t ArchiveClean(uint8_t aNum) {
 	archive_str *volatile str;													//временные переменные
 	uint32_t space;
@@ -228,7 +231,8 @@ uint32_t ArchiveClean(uint8_t aNum) {
     if (space > 0) {
         str->lData = shift_in_circ_buf(&str->memory, str->bData, FLASH_BLOCK_SIZE);
         str->tData = flash_sect_erase(str->lData);
-        str->lData = str->bData = str->tData;									//переустановка указателей
+        str->lData = str->tData;
+        str->bData = str->tData;                                                //переустановка указателей
         str->packets = str->pLen = 0;
         Events.StoreNavData = 1;												//выставл€ем флаг сохранени€ настроек
     }
@@ -280,7 +284,7 @@ uint32_t ArchiveGetInfo(uint8_t aNum, a_info type) {
  если результат > 0 размер записанных данных
  если результат < 0 число стертых пакетов
 ------------------------------------------------------------------------------*/
-int SavePacket(uint8_t aNum, char *pData, uint16_t pLen) {
+int32_t SavePacket(uint8_t aNum, uint8_t *pData, uint16_t pLen) {
 	archive_str *volatile str;													//указатель на хранилище
 	int32_t result;
 	char *mBuf;
@@ -360,7 +364,7 @@ static int32_t checking_border(archive_str *arch, int nSize) {
         read_circ_memory(&arch->memory, mBuf, arch->bData, USEFUL_DATA);
         for (dlen = USEFUL_DATA; dlen > 0; ) {
             plen = ((ARec*)(mBuf + (USEFUL_DATA - dlen)))->pLen;                //размер пакета
-            // ѕроверка размера пакета. TODO ¬озможно надо провер€ть целостность структуры
+            // ѕроверка размера пакета. XXX ¬озможно лучшей вариант провер€ть целостность структуры
             if (plen < MIN_ARCH_SIZE || plen > MAX_ARCH_SIZE) {
                 nLData += FLASH_BLOCK_SIZE;
                 nSize = 0;
@@ -378,7 +382,7 @@ static int32_t checking_border(archive_str *arch, int nSize) {
 		}
 		wdog_Clear();
 	}
-    if (fill_mem != NULL)
+    if (fill_mem != 0x0000)
         flash_sect_erase(fill_mem);
     FREE_BUFFER(mBuf);
 	return (-nSize);
@@ -388,7 +392,7 @@ static int32_t checking_border(archive_str *arch, int nSize) {
  * „тение данных из архива aLen в область pData, размером не более blen
  * возвращает размер данных в буфере
  */
-int ReadArchivePacket(uint8_t aNum, char *pData, uint16_t blen) {
+int32_t ReadArchivePacket(uint8_t aNum, uint8_t *pData, uint16_t blen) {
 	uint16_t plen, rlen, aLen;													//используемые переменные
 	archive_str *volatile arch;
     ARec *rec;
@@ -413,8 +417,8 @@ int ReadArchivePacket(uint8_t aNum, char *pData, uint16_t blen) {
                 blen = 0; break;
             }
             // ошибка при проверке пакета
-            if (check_pckPacket(rec) == NULL) {
-                if (rlen == NULL) {
+            if (check_pckPacket(rec) == 0x0000) {
+                if (rlen == 0x0000) {
                     debuglog("Archive: skip %d bytes\r\n", plen);
                     arch->bData = shift_in_circ_buf(&arch->memory, arch->bData, plen);
                     arch->packets -= 1;
@@ -438,7 +442,7 @@ int ReadArchivePacket(uint8_t aNum, char *pData, uint16_t blen) {
  * ”даление пакета из архива aNum с номером packet
  * ¬озращает размер удаленного пакета, либо -1 если пакета в архиве нет
  */
-int DelArchivePacket(uint8_t aNum, uint16_t packet) {
+int32_t DelArchivePacket(uint8_t aNum, uint16_t packet) {
 	archive_str *volatile arch;													//используемые переменные
     ARec *rec;
 	char *mBuf;
@@ -455,7 +459,7 @@ int DelArchivePacket(uint8_t aNum, uint16_t packet) {
         packet = rec->pLen;                                                     //размер пакета
         //чтение и коррекци€ информации о оставшихс€ пакетах
         arch->bData = shift_in_circ_buf(&arch->memory, arch->bData, packet);
-        /* TODO
+        /* XXX
          * ѕосле подтверждени€ доставки архивных пакетов переустанавливаем указатель
          * начала архива. ƒанна€ информаци€ сохран€етс€ либо каждые 100 метров,
          * если объект движетс€, либо каждые 100 секунд если объект стоит
@@ -483,7 +487,7 @@ static uint32_t check_pckPacket(ARec *rec) {
 
     aCRC = rec->pCRC;
     rec->pCRC = 0x0000;
-    cCRC = CRCx1021((char*)rec, rec->pLen);
+    cCRC = CRCx1021((uint8_t*)rec, rec->pLen);
     aTime = (aCRC == cCRC) ? rec->pTime : 0;
     if(!aTime) {
         debuglog("Archive: Incorrect packet CRC %04X, expected %04X\r\n", cCRC, aCRC);
@@ -506,7 +510,7 @@ static uint16_t get_unpckLen(uint16_t len) {
 /*------------------------------------------------------------------------------
  * ѕодготовка строки с информацией о очереди и архиве
  */
-int ArchiveTxtInfo(char anum, char *msg) {
+int32_t ArchiveTxtInfo(uint8_t anum, char *msg) {
 	archive_str *volatile str;
 	int len;
 
