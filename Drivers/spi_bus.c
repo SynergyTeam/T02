@@ -7,7 +7,7 @@
 #include <Drivers/spi/SPI.h>
 #include <Drivers/spi/SPITivaDMA.h>
 #include "Drivers/spi_bus.h"
-#include "sflash/flash_25xxx.h"
+#include "Drivers/spi_flash/flash_25xxx.h"
 
 //------------------------------------------------------------------------------
 /* SPI objects */
@@ -59,17 +59,11 @@ void HW_initSPI(uint32_t clock) {
     GPIO_InitTypeDef  GPIO_InitStruct;
 
     // SPI5 - FLASH
-    /* Peripheral clock enable */
+    // Peripheral clock enable
     FLASH_BUS_ENABLE();
     FLASH_CLK_ENABLE();
     FLASH_DMAx_ENABLE();
 
-    /**SPI5 GPIO Configuration
-    PE11     ------> SPI5_NSS
-    PE12     ------> SPI5_SCK
-    PE13     ------> SPI5_MISO
-    PE14     ------> SPI5_MOSI
-    */
     GPIO_InitStruct.Pin = FLASH_NSS_PIN | FLASH_SCK_PIN | FLASH_MISO_PIN | FLASH_MOSI_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -77,13 +71,18 @@ void HW_initSPI(uint32_t clock) {
     GPIO_InitStruct.Alternate = GPIO_AF6_SPI5;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-//    // SSI3 - PRINTER
-//    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI3);
-//    MAP_GPIOPinConfigure(GPIO_PQ0_SSI3CLK);
-//    MAP_GPIOPinConfigure(GPIO_PQ2_SSI3XDAT0);
-//    MAP_GPIOPinConfigure(GPIO_PQ3_SSI3XDAT1);
-//    MAP_GPIOPinTypeSSI(GPIO_PORTQ_BASE, PRINTER_SDOUT | PRINTER_SDIN | PRINTER_SCLK);
-//
+
+    // SSI3 - PRINTER
+    // Peripheral clock enable
+    __HAL_RCC_SPI4_CLK_ENABLE();
+
+    GPIO_InitStruct.Pin = GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_6;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF5_SPI4;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
     SPI_init();
 }
 

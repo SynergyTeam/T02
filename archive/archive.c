@@ -9,8 +9,8 @@
 #include "struct.h"
 #include "settings.h"
 //#include "cpu_resource/watchdog.h"
-//#include "cpu_resource/spi_bus.h"
-#include "sflash/archive.h"
+#include "Drivers/spi_bus.h"
+#include "archive/archive.h"
 //#include "sflash/queue_mng.h"
 //#include "communication/protocol_descr.h"
 //#include "navigation/navigation.h"
@@ -46,7 +46,7 @@ static uint16_t get_unpckLen(uint16_t pLen);
  */
 void ArchiveChipInit(void) {
 	uint32_t rsize;
-	char arch;
+	uint8_t arch;
 
 	rsize = flash_init(ssi_FLASH);
 	for (arch = 0; arch < MAX_ARCHIVES; ++arch) {
@@ -60,7 +60,7 @@ void ArchiveChipInit(void) {
  * ≈сли все указатели попадают в соответствующие окна архива возращает 0,
  * если осуществл€лась коррекци€ указател€ возращает 1
  */
-char ArchiveGetBorder(char *percent, uint32_t *bData) {
+char ArchiveGetBorder(uint8_t *percent, uint32_t *bData) {
 	uint32_t  arcSize[MAX_ARCHIVES], maxSize, indx;
 	archive_str *volatile arc;
 	char aNum;
@@ -136,7 +136,7 @@ void ArchiveSetBorder(sys_config *cfg) {
  * ¬озвращает врем€ создани€ последнего пакета (в секундах относительно 2000-го года)
  * либо 0 если нет пакетов.
  */
-uint32_t ArchiveCalcSize(char aNum, uint32_t start, uint16_t *PacketNum) {
+uint32_t ArchiveCalcSize(uint8_t aNum, uint32_t start, uint16_t *PacketNum) {
 	archive_str *volatile str;
 	uint32_t time;
 	char *mBuf;
@@ -218,7 +218,7 @@ static uint32_t checking_sequence(uint16_t *PacketNum, archive_str *arch, char *
 // Cтирание архива во внешней пам€ти. anum - номер архива
 // ¬озвращает указатель на начало архива
 #pragma FUNCTION_OPTIONS (ArchiveClean, "--opt_level=0")
-uint32_t ArchiveClean(char aNum) {
+uint32_t ArchiveClean(uint8_t aNum) {
 	archive_str *volatile str;													//временные переменные
 	uint32_t space;
 
@@ -238,7 +238,7 @@ uint32_t ArchiveClean(char aNum) {
 /*------------------------------------------------------------------------------
  ѕроверка состо€ни€ архива (подтвержденных пакетов) и сброс таймера
 ------------------------------------------------------------------------------*/
-void ArchiveTrDelay(uint16_t *timer, char aNum, char traffic_ctrl) {
+void ArchiveTrDelay(uint16_t *timer, uint8_t aNum, uint8_t traffic_ctrl) {
 	archive_str *volatile str;
 
 	str = &Archive[aNum];
@@ -252,7 +252,7 @@ void ArchiveTrDelay(uint16_t *timer, char aNum, char traffic_ctrl) {
 /*------------------------------------------------------------------------------
  * »нформаци€ о состо€нии архива. type - тип информации
  */
-uint32_t ArchiveGetInfo(char aNum, a_info type) {
+uint32_t ArchiveGetInfo(uint8_t aNum, a_info type) {
 	archive_str *volatile str;
 	int32_t size, fill_mem;
 
@@ -280,7 +280,7 @@ uint32_t ArchiveGetInfo(char aNum, a_info type) {
  если результат > 0 размер записанных данных
  если результат < 0 число стертых пакетов
 ------------------------------------------------------------------------------*/
-int SavePacket(char aNum, char *pData, uint16_t pLen) {
+int SavePacket(uint8_t aNum, char *pData, uint16_t pLen) {
 	archive_str *volatile str;													//указатель на хранилище
 	int32_t result;
 	char *mBuf;
@@ -388,7 +388,7 @@ static int32_t checking_border(archive_str *arch, int nSize) {
  * „тение данных из архива aLen в область pData, размером не более blen
  * возвращает размер данных в буфере
  */
-int ReadArchivePacket(uint16_t aNum, char *pData, uint16_t blen) {
+int ReadArchivePacket(uint8_t aNum, char *pData, uint16_t blen) {
 	uint16_t plen, rlen, aLen;													//используемые переменные
 	archive_str *volatile arch;
     ARec *rec;
@@ -438,7 +438,7 @@ int ReadArchivePacket(uint16_t aNum, char *pData, uint16_t blen) {
  * ”даление пакета из архива aNum с номером packet
  * ¬озращает размер удаленного пакета, либо -1 если пакета в архиве нет
  */
-int DelArchivePacket(char aNum, uint16_t packet) {
+int DelArchivePacket(uint8_t aNum, uint16_t packet) {
 	archive_str *volatile arch;													//используемые переменные
     ARec *rec;
 	char *mBuf;

@@ -38,7 +38,6 @@
 
 /* USER CODE BEGIN 0 */
 #include "hardware.h"
-#include "sflash/flash_25xxx.h"
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/

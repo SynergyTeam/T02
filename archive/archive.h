@@ -2,8 +2,8 @@
 #define __ARCHIVE__
 
 #include "struct.h"
-#include "sflash/flash_25xxx.h"
-#include "sflash/circ_memory.h"
+#include "Drivers/spi_flash/flash_25xxx.h"
+#include <archive/circ_memory.h>
 
 //Информация о состоянии архива
 typedef enum a_info {

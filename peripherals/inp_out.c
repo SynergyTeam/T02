@@ -10,7 +10,7 @@
 #include "peripherals/inp_out.h"
 #include "console/console.h"
 #include "Drivers/spi_bus.h"
-#include "sflash/flash_25xxx.h"
+#include "Drivers/spi_flash/flash_25xxx.h"
 
 //переменные
 osThreadId InpOutTaskHandle;

@@ -60,7 +60,7 @@ char *SearchStr(char *s1, int32_t l1, char *s2) {
 //в случае ошибки приемник не обновляется
 void StrToBCD(char* dest, char bp, char ap, char* source) {
 	if (source) { //поле найдено
-		char dg, tlen, len, dig[10];
+        uint8_t len, tlen, dig[10], dg;
 		tlen = len = bp + ap;
 		if (ap) ap = 1;
 		for (dg = 0; dg < 10 && dg < len;) {									//цикл преобразования
@@ -85,7 +85,7 @@ void StrToBCD(char* dest, char bp, char ap, char* source) {
 		tlen >>= 1;
 		dest += tlen;
 		for (bp = 0, ap = 0; tlen > 0;) {										//преобразование
-			if ((signed char) len > 0) bp |= (dig[--len] << 4);
+			if (len > 0) bp |= (dig[--len] << 4);
 			if (ap++ & 1) {
 				*--dest = bp;
 				bp = 0;

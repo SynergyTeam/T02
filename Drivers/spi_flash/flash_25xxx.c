@@ -8,10 +8,11 @@
 
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
+#include "hardware.h"
 #include "Drivers/spi_bus.h"
 #include "Drivers/spi/SPITivaDMA.h"
-#include "sflash/flash_25xxx.h"
-//#include "utils/console.h"
+#include "Drivers/spi_flash/flash_25xxx.h"
+#include "console/console.h"
 
 //------------------------------------------------------------------------------
 //опция проверки записанных данных
@@ -88,9 +89,6 @@ uint32_t flash_init(uint32_t ssiBus) {
 //        System_abort("Can't open Flash bus!");
     }
     SSI[ssiBus] = Flash.handle;
-//    MAP_SSIAdvModeSet(((SPIDMA_HWAttrs*)Flash.handle->hwAttrs)->baseAddr, SSI_ADV_MODE_LEGACY);
-//    MAP_SSIAdvFrameHoldDisable(((SPIDMA_HWAttrs*)Flash.handle->hwAttrs)->baseAddr);
-
     return (flash_size(&Flash));
 }
 
@@ -113,8 +111,10 @@ static void wr_enable(t_FlTrans *flash) {
     flash->ssi.rxBuf = NULL;
     flash->ssi.count = 1;
     flash->size = 0;
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
     SPI_transfer(flash->handle, &flash->ssi);
     xSemaphoreTake((drvOBJ(flash->handle)->transferComplete), portMAX_DELAY);
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
 }
 //------------------------------------------------------------------------------
 //Выяснение размера и типа используемой памяти (flash)
@@ -128,9 +128,10 @@ static uint32_t flash_size(t_FlTrans *flash) {
     flash->ssi.count = 4;
     // ответ
     flash->size = 0;
-
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
     SPI_transfer(flash->handle, &flash->ssi);
     xSemaphoreTake((drvOBJ(flash->handle)->transferComplete), portMAX_DELAY);
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
 
     /* Проверка типа поддерживаемой памяти:
      * Macronix MX25xxx35/36
@@ -179,8 +180,10 @@ static uint8_t flash_ready(t_FlTrans *flash) {
     // ответ
     do {
         flash->size = 0;
+        HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
         SPI_transfer(flash->handle, &flash->ssi);
         xSemaphoreTake((drvOBJ(flash->handle)->transferComplete), portMAX_DELAY);
+        HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
         rdData = flash->cmdbuf[3];
     } while (rdData & WIP_bit);
 
@@ -207,8 +210,10 @@ uint32_t flash_sect_erase(uint32_t addr) {
     flash->ssi.rxBuf = NULL;
     flash->ssi.count = 4;
     flash->size = 0;
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
     SPI_transfer(flash->handle, &flash->ssi);
     xSemaphoreTake((drvOBJ(flash->handle)->transferComplete), portMAX_DELAY);
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
 
     flash_ready(flash);                                                         //ждем выполнения
 	MEMORY_UNLOCK;
@@ -230,8 +235,10 @@ void flash_erase(void) {
     Flash.ssi.rxBuf = NULL;
     Flash.ssi.count = 1;
     Flash.size = 0;
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
     SPI_transfer(Flash.handle, &Flash.ssi);
     xSemaphoreTake((drvOBJ(Flash.handle)->transferComplete), portMAX_DELAY);
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
 
     flash_ready(&Flash);                                                        //ждем готовности
 	MEMORY_UNLOCK;
@@ -257,16 +264,11 @@ int flash_read(uint8_t *data, uint32_t Adr, int len) {
     Flash.rdData = (uint8_t*)data;
     Flash.size = len;
 
-    // транзакция
-//    MAP_SSIAdvModeSet(baseAddr, SSI_ADV_MODE_READ_WRITE);
-//    MAP_SSIAdvFrameHoldEnable(baseAddr);
-
     // Initiate SPI transfer
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
     SPI_transfer(Flash.handle, &Flash.ssi);
     xSemaphoreTake((drvOBJ(Flash.handle)->transferComplete), portMAX_DELAY);
-
-//    MAP_SSIAdvFrameHoldDisable(baseAddr);
-//    MAP_SSIAdvModeSet(baseAddr, SSI_ADV_MODE_LEGACY);
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
 
     MEMORY_UNLOCK;
     return (len);
@@ -313,8 +315,10 @@ int flash_write(uint8_t *data, uint32_t Adr, int len) {
         Flash.ssi.count = 4 + blockSize;
         Flash.size = 0;
         // транзакция
+        HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
         SPI_transfer(Flash.handle, &Flash.ssi);
         xSemaphoreTake((drvOBJ(Flash.handle)->transferComplete), portMAX_DELAY);
+        HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
         //ждем готовности
         flash_ready(&Flash);
 
