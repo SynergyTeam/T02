@@ -41,13 +41,14 @@ extern sys_config  *config;
 extern uint8_t     *tanks_ptr;
 extern last_state   LGD;
 
-void DefaultSettings(sys_config *cfg, uint8_t error);
-uint8_t ReadSettings(nav_solution *nSolution);
-void SaveSettings(sys_config *cfg, uint8_t delay);
-void SaveLastState(void);
-extern void ChangeCfg(uint8_t *dest, uint8_t *src, uint8_t size);
+extern uint8_t ReadSettings(nav_solution *nSolution);
+extern void DefaultSettings(sys_config *cfg, uint8_t error);
+extern void SaveSettings(sys_config *cfg, uint8_t delay);
+extern void SaveLastState(void);
+extern void ChangeCfg(uint8_t *dest, uint8_t *src, uint16_t size);
 extern void SaveTankTable(uint32_t ptr, uint8_t *table, int32_t len);
-extern uint8_t *default_nCfg(uint32_t code, net_cfg type);
+extern char *default_nCfg(uint32_t code, net_cfg type);
+
 
 #endif /* __SETTINGS_H__ */
 

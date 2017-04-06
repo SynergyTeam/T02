@@ -9,6 +9,9 @@
 #include "usb_device.h"
 #include "peripherals/inp_out.h"
 #include "console/console.h"
+#include "archive/archive.h"
+#include "navigation/navigation.h"
+#include "settings.h"
 #include "Drivers/spi_bus.h"
 #include "Drivers/spi_flash/flash_25xxx.h"
 
@@ -20,14 +23,21 @@ osThreadId InpOutTaskHandle;
  * Осуществляется инициализация, обработка входов/выходов, подсчет архива и пр.
  */
 void InputOutputTask(void const * argument) {
-    uint32_t flash_size;
+    int32_t rslt;
 
     MX_USB_DEVICE_Init();
+    HW_initSPI();
 
     osDelay(3000);
-    ConsoleMes("Device starting...\r\n");
-    HW_initSPI(180);
-    flash_size = flash_init(ssi_FLASH);
+    // Вывод приветствия в консоль
+    ConsoleMes(msg_Welcome);
+    ConsoleMes(msg_Version, SYSTEM_VER/100, SYSTEM_VER%100, msg_BuildDate);
+    // Инициализация внешней памяти, чтение настроек
+    ArchiveChipInit();
+    rslt = ReadSettings(&nSolution);
+    if(rslt != 0)
+        ConsoleMes(msg_BadSettings, rslt);                                      //Ошибка в настройках
+
 
     for(;;)
     {

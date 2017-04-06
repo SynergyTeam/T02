@@ -7,31 +7,24 @@
 
 #include "config.h"
 #include "struct.h"
+#include "drivers/spi_flash/flash_25xxx.h"
 #include "console/console.h"
 //#include "cpu_resource/hardware.h"
 //#include "cpu_resource/watchdog.h"
-//#include "navigation/navigation.h"
+#include "navigation/navigation.h"
 //#include "communication/modem.h"
 //#include "communication/protocol_descr.h"
 //#include "power_mng.h"
-#include "sflash/archive.h"
-//#include "peripherals/accel/ensure/EnsTelematics.h"
-#include "console/data_opr.h"
+#include "archive/archive.h"
+#include "utils/data_opr.h"
 //#include "time_app.h"
 #include "settings.h"
 
-#ifdef TARGET_IS_BLIZZARD
-//Внешние переменные
-extern sys_events Events;
+#define UpdateNavigationData(x, y)      UNUSED(x)
+#define wdog_Clear()
 
-sys_config *config = (sys_config*)FLASH_CONFIG;
-char *tanks_ptr = (char*)(FLASH_CONFIG - (MAX_LIQUID_LEVEL_SENSOR * 1024));
-#endif
-#ifdef TARGET_IS_SNOWFLAKE
-char dTanksTbl[MAX_LIQUID_LEVEL_SENSOR * 1024], *tanks_ptr = dTanksTbl;
+uint8_t dTanksTbl[MAX_LIQUID_LEVEL_SENSOR * 1024], *tanks_ptr = dTanksTbl;
 sys_config dConfig, *config = (sys_config*)&dConfig;
-#endif
-
 last_state LGD;
 uint32_t AdrA, AdrB;
 
@@ -50,8 +43,8 @@ static char ChangeSettings(sys_config *cfg);
  * Чтение системных настроек.
  * Возвращает true при успешном чтении, false при ошибке
  */
-char ReadSettings(nav_solution *nSolution) {
-    char err_a, err_b, cfgStat;
+uint8_t ReadSettings(nav_solution *nSolution) {
+    uint8_t err_a, err_b, cfgStat;
     sys_config *cfg;
     last_state *lgd = &LGD;
     uint32_t att;
@@ -74,7 +67,7 @@ char ReadSettings(nav_solution *nSolution) {
     if (cfgStat == sett_ok)
         UpdateNavigationData(nSolution->solution, 1);
     for(err_a = 0xFF, att = 0; err_a && att < 5; ++att) {						//цикл чтения и проверки
-        flash_read((char*)config, SettingsCopy, sizeof(*config), flash);		//считываем переменные из FLASH
+        flash_read((uint8_t*)config, SettingsCopy, sizeof(*config));            //считываем переменные из FLASH
         err_a = CheckSettings(config);											//проверка CRC
     }
     for(err_b = 0xFF, att = 0; err_b && att < 5; ++att) {						//цикл чтения и проверки
@@ -97,10 +90,8 @@ char ReadSettings(nav_solution *nSolution) {
     if(err_b & based)
         memset(tanks_ptr, 0xFF, LLS_TABLE_SIZE * MAX_LIQUID_LEVEL_SENSOR);
     else
-        flash_read(tanks_ptr, FLASH_LLS_TABLE, LLS_TABLE_SIZE * MAX_LIQUID_LEVEL_SENSOR, flash);
-    att = Task_disable();
+        flash_read(tanks_ptr, FLASH_LLS_TABLE, LLS_TABLE_SIZE * MAX_LIQUID_LEVEL_SENSOR);
     memcpy(config, cfg, sizeof(*config));
-    Task_restore(att);
     free(cfg);
     return (err_b);
 }
@@ -108,41 +99,38 @@ char ReadSettings(nav_solution *nSolution) {
 //сохранение системных настроек
 void SaveSettings(sys_config *cfg, uint8_t delay) {
     uint16_t len;
-    uint32_t key;
-    char *ptr;
+    uint8_t *ptr;
 
     //вычисление контрольной суммы
-    ptr = (char*) &cfg->id_len + sizeof(cfg->id_len);
-    cfg->id_len = (char*) &cfg->id_crc - ptr;
+    ptr = (uint8_t*)&cfg->id_len + sizeof(cfg->id_len);
+    cfg->id_len = (uint8_t*)&cfg->id_crc - ptr;
     cfg->id_crc = CRCx1021(ptr, cfg->id_len);
 
-    ptr = (char*) &cfg->bd_len + sizeof(cfg->bd_len);
-    cfg->bd_len = (char*) &cfg->bd_crc - ptr;
+    ptr = (uint8_t*)&cfg->bd_len + sizeof(cfg->bd_len);
+    cfg->bd_len = (uint8_t*)&cfg->bd_crc - ptr;
     cfg->bd_crc = CRCx1021(ptr, cfg->bd_len);
 
     //сохранение настроек во FLASH процессора
     len = sizeof(*cfg);
     if (!delay) {
         //сохранение настроек во внешней FLASH
-        mfile_write((char*)cfg, SettingsAdr, sizeof(*cfg), flash);
-        mfile_write((char*)cfg, SettingsCopy, sizeof(*cfg), flash);
+        flash_write((uint8_t*)cfg, SettingsAdr, sizeof(*cfg));
+        flash_write((uint8_t*)cfg, SettingsCopy, sizeof(*cfg));
     }
-    key = Task_disable();
     memmove(config, cfg, len);
-    Task_restore(key);
 }
 //------------------------------------------------------------------------------
 //сохранение навигационных параметров и настроек
 void SaveLastState(void) {
 	last_state *lgd;															//временные переменные
 	circ_buf sett;
-	char *ptr;
+	uint8_t *ptr;
 	uint16_t len;
 
 	lgd = &LGD;																	//вычисление контрольной суммы
 	CalcDay(&lgd->prvSolution.time);
-	ptr = (char*)&lgd->gd_len + sizeof(lgd->gd_len);
-	lgd->gd_len = (char*)&lgd->gd_crc - ptr;
+	ptr = (uint8_t*)&lgd->gd_len + sizeof(lgd->gd_len);
+	lgd->gd_len = (uint8_t*)&lgd->gd_crc - ptr;
 	lgd->gd_crc = CRCx1021(ptr, lgd->gd_len);
 	len = sizeof(*lgd);
 
@@ -161,9 +149,10 @@ void SaveLastState(void) {
  */
 static settings_err check_lst_struct (last_state *rPnt) {
 	uint16_t len, crc;
-	char *ptr;
-	ptr = (char*)&rPnt->gd_len + sizeof(rPnt->gd_len);
-	len = (char*)&rPnt->gd_crc - ptr;
+	uint8_t *ptr;
+
+	ptr = (uint8_t*)&rPnt->gd_len + sizeof(rPnt->gd_len);
+	len = (uint8_t*)&rPnt->gd_crc - ptr;
 	if(len != rPnt->gd_len)
 		return (shorttime);
 	crc = CRCx1021(ptr, len);
@@ -240,12 +229,12 @@ static uint32_t GetPrvPoint(last_state *lgd, uint32_t Adr) {
 //проверка контрольной суммы
 static char CheckSettings(sys_config *cfg) {
 	uint16_t len, crc;  														//временные переменные
-	char err, *ptr;
+	uint8_t err, *ptr;
 	err = 0x00;
 
 	/* проверка основных настроек ID, IP, APN и пр */
-	ptr = (char*) &cfg->id_len + sizeof(cfg->id_len);
-	len = (char*) &cfg->id_crc - ptr;
+	ptr = (uint8_t*)&cfg->id_len + sizeof(cfg->id_len);
+	len = (uint8_t*)&cfg->id_crc - ptr;
 	if (len != cfg->id_len)
 		err |= primary;
 	else {
@@ -256,8 +245,8 @@ static char CheckSettings(sys_config *cfg) {
 			err |= primary;
 	}
 	/* проверка расширенных настроек */
-	ptr = (char*) &cfg->bd_len + sizeof(cfg->bd_len);
-	len = (char*) &cfg->bd_crc - ptr;
+	ptr = (uint8_t*)&cfg->bd_len + sizeof(cfg->bd_len);
+	len = (uint8_t*)&cfg->bd_crc - ptr;
 	if (len != cfg->bd_len)
 		err |= based;
 	else {
@@ -271,8 +260,8 @@ static char CheckSettings(sys_config *cfg) {
 	return err;
 }
 //------------------------------------------------------------------------------  
-void DefaultSettings(sys_config *cfg, char error) {
-    char aN;
+void DefaultSettings(sys_config *cfg, uint8_t error) {
+    uint8_t aN;
     if(error & primary) {
         DefaultCFGx00(cfg);                                                     //нет основных настроек
         for(aN = 1; aN < MAX_ARCHIVES; ++aN)
@@ -286,9 +275,9 @@ void DefaultSettings(sys_config *cfg, char error) {
 //основные настройки по умолчанию
 static void DefaultCFGx00(sys_config *cfg) {
 	uint16_t len;
-	char *ptr;
-	ptr = (char*)&cfg->id_len + sizeof(cfg->id_len);
-	len = (char*)&cfg->id_crc - ptr;
+	uint8_t *ptr;
+	ptr = (uint8_t*)&cfg->id_len + sizeof(cfg->id_len);
+	len = (uint8_t*)&cfg->id_crc - ptr;
 	memset(ptr, 0, len);														//начальная очистка
 	memset(cfg->id, '0', sizeof(cfg->id));
 	memset(cfg->M_cmd_number, '0', 7);											//дополнительный номер SMS управления
@@ -306,9 +295,9 @@ static void DefaultCFGx00(sys_config *cfg) {
 //базовые настройки по умолчанию
 static void DefaultCFGx01(sys_config *cfg) {
     int16_t amnt;
-    char *ptr;
-    ptr = (char*)&cfg->bd_len + sizeof(cfg->bd_len);
-    amnt = (char*)&cfg->bd_crc - ptr;
+    uint8_t *ptr;
+    ptr = (uint8_t*)&cfg->bd_len + sizeof(cfg->bd_len);
+    amnt = (uint8_t*)&cfg->bd_crc - ptr;
     memset(ptr, 0, amnt);														//начальная очистка
 
     cfg->RCV_valid_delay = 4;
@@ -342,7 +331,7 @@ static void DefaultCFGx01(sys_config *cfg) {
     cfg->UINP_cfg = 0x36;                                                       //UINP1,2: 0-40V, без подтяжки. UINP3,4: 0-40V, без подтяжки
     cfg->UINP_work_mode = 0x1111;                                               //UINP1-4 аналоговые
 //    cfg->DINP_pull_up = 1;
-    cfg->DINP_inversion = 0x1EFF0;                                              //инверсные входы
+    cfg->DINP_inversion = 0xEFF0;                                               //инверсные входы
     memset(cfg->DINP_pls_time, 1, (HW_PLSINP + HW_UINP));                       //время подсчета импульсов
 #ifdef UINP_AD
     memset(cfg->DINP_pls_time, 1, HW_PLSINP);                                   //время подсчета импульсов
@@ -424,11 +413,11 @@ static char ChangeSettings(sys_config *cfg) {
  * dest - указатель на начало данных для изменения
  * src - указатель на блок с настройками, size - его размер
  */
-void ChangeCfg(char *dest, char *src, int size) {
+void ChangeCfg(uint8_t *dest, uint8_t *src, uint16_t size) {
     sys_config *cfg;
-    ASSERT(dest >= (char*)config && dest < ((char*)config + sizeof(*config)));
+    assert_param(dest >= (uint8_t*)config && dest < ((uint8_t*)config + sizeof(*config)));
     cfg = (sys_config*)malloc(sizeof(sys_config));
-    dest = (char*)cfg + (dest - (char*)config);
+    dest = (uint8_t*)cfg + (dest - (uint8_t*)config);
     memcpy(cfg, config, sizeof(*config));
     memcpy(dest, src, size);
     SaveSettings(cfg, 0);
@@ -440,7 +429,7 @@ void ChangeCfg(char *dest, char *src, int size) {
  * для TM4C123 страница сохраняется во FLASH, для TM4C129 во внешнюю память
  * ptr - адрес для сохранения, table - адрес таблицы
  */
-void SaveTankTable(uint32_t ptr, char *table, int32_t len) {
+void SaveTankTable(uint32_t ptr, uint8_t *table, int32_t len) {
 #ifdef TARGET_IS_BLIZZARD
     ptr &= (~0x3FF);
     MAP_FlashProtectSet(ptr, FlashReadWrite);

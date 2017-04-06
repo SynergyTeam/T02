@@ -82,9 +82,9 @@ typedef struct nav_solution {
     unsigned    zone_compare:1;             // флаг нахождения внутри любой геозоны (согласно настройкам)
     uint8_t     lost_valid_solution;
 
-    char        delay_solution;
+    uint8_t     delay_solution;
     nav_time    type_time;
-    char        sat_number[33];
+    uint8_t     sat_number[33];
 } nav_solution;
 
 //структура конфигурации матрицы входов
@@ -207,16 +207,16 @@ typedef struct {
     uint16_t        DINP_tremble[(HW_DINP + HW_UINP)];
     master_slave    DINP_dependence[(HW_DINP + HW_UINP)];
     uint16_t        DINP_pulse;
-    char            DINP_pls_per_turn[HW_PLSINP + HW_UINP];
-    char            DINP_pls_time[HW_PLSINP + HW_UINP];
+    uint8_t         DINP_pls_per_turn[HW_PLSINP + HW_UINP];
+    uint8_t         DINP_pls_time[HW_PLSINP + HW_UINP];
     thresholds      DINP_d_thld[HW_PLSINP + HW_UINP];
 
-    uint8_t         UINP_work_mode;
-    char            UINP_cfg;
-    char            AINP_used;
-    char            AINP_norm_inp;
-    char            AINP_pr_delay[HW_AINP + HW_UINP];
-    char            AINP_averaging[HW_AINP + HW_UINP];
+    uint16_t         UINP_work_mode;
+    uint8_t         UINP_cfg;
+    uint8_t         AINP_used;
+    uint8_t         AINP_norm_inp;
+    uint8_t         AINP_pr_delay[HW_AINP + HW_UINP];
+    uint8_t         AINP_averaging[HW_AINP + HW_UINP];
     uint16_t        AINP_events_timer;
     uint16_t        AINP_ref_U;
     thresholds      AINP_a_thld[4];

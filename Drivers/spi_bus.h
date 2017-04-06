@@ -21,7 +21,7 @@ typedef enum Device_SPIName {
 extern SPI_Handle SSI[SSI_BUS];
 
 //внешние функции
-extern void HW_initSPI(uint32_t clock);
+extern void HW_initSPI(void);
 extern void uDMAInit(void);
 
 #endif /* _SPI_INIT_ */

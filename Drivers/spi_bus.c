@@ -55,7 +55,7 @@ const SPI_Config SPI_config[] = {
 /*------------------------------------------------------------------------------
  * Инициализация всех SPI интерфейсов
  */
-void HW_initSPI(uint32_t clock) {
+void HW_initSPI(void) {
     GPIO_InitTypeDef  GPIO_InitStruct;
 
     // SPI5 - FLASH
