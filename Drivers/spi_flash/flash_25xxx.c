@@ -119,6 +119,7 @@ static void wr_enable(t_FlTrans *flash) {
     SPI_transfer(flash->handle, &flash->ssi);
     xSemaphoreTake((drvOBJ(flash->handle)->transferComplete), portMAX_DELAY);
     HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
+    ((SPIDMA_Object*)flash->handle->object)->transaction = NULL;
 }
 //------------------------------------------------------------------------------
 //¬ы€снение размера и типа используемой пам€ти (flash)
@@ -193,6 +194,7 @@ static uint8_t flash_ready(t_FlTrans *flash) {
         SPI_transfer(flash->handle, &flash->ssi);
         xSemaphoreTake((drvOBJ(flash->handle)->transferComplete), portMAX_DELAY);
         HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
+        ((SPIDMA_Object*)flash->handle->object)->transaction = NULL;
         rdData = flash->cmdbuf[3];
     } while (rdData & WIP_bit);
 
@@ -202,29 +204,26 @@ static uint8_t flash_ready(t_FlTrans *flash) {
  * Cтирание сектора данных с адреса addr
  */
 uint32_t flash_sect_erase(uint32_t addr) {
-    t_FlTrans *flash;
-
 	MEMORY_LOCK;
-    flash = &Flash;
 
-    wr_enable(flash);                                                           //разрешаем запись
+    wr_enable(&Flash);                                                           //разрешаем запись
 
     // команда
-    flash->cmdbuf[0] = SectorErase;
-    flash->cmdbuf[1] = (uint8_t)(addr >> 16);
-    flash->cmdbuf[2] = (uint8_t)(addr >> 8);
-    flash->cmdbuf[3] = (uint8_t)addr;
+    Flash.cmdbuf[0] = SectorErase;
+    Flash.cmdbuf[1] = (uint8_t)(addr >> 16);
+    Flash.cmdbuf[2] = (uint8_t)(addr >> 8);
+    Flash.cmdbuf[3] = (uint8_t)addr;
     // транзакци€
-    flash->ssi.txBuf = flash->cmdbuf;
-    flash->ssi.rxBuf = NULL;
-    flash->ssi.count = 4;
-    flash->size = 0;
+    Flash.ssi.txBuf = Flash.cmdbuf;
+    Flash.ssi.rxBuf = NULL;
+    Flash.ssi.count = 4;
+    Flash.size = 0;
     HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_RESET);
-    SPI_transfer(flash->handle, &flash->ssi);
-    xSemaphoreTake((drvOBJ(flash->handle)->transferComplete), portMAX_DELAY);
+    SPI_transfer(Flash.handle, &Flash.ssi);
+    xSemaphoreTake((drvOBJ(Flash.handle)->transferComplete), portMAX_DELAY);
     HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
 
-    flash_ready(flash);                                                         //ждем выполнени€
+    flash_ready(&Flash);                                                        //ждем выполнени€
 	MEMORY_UNLOCK;
 	return addr;
 }
@@ -248,6 +247,7 @@ void flash_erase(void) {
     SPI_transfer(Flash.handle, &Flash.ssi);
     xSemaphoreTake((drvOBJ(Flash.handle)->transferComplete), portMAX_DELAY);
     HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
+    ((SPIDMA_Object*)Flash.handle->object)->transaction = NULL;
 
     flash_ready(&Flash);                                                        //ждем готовности
 	MEMORY_UNLOCK;
