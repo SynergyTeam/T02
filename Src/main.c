@@ -138,7 +138,7 @@ int main(void)
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_THREADS */
-  osThreadDef(mainTask, InputOutputTask, osPriorityHigh, 0, 768);
+  osThreadDef(mainTask, InputOutputTask, osPriorityHigh, 0, 2048);
   InpOutTaskHandle = osThreadCreate(osThread(mainTask), NULL);
 
   osThreadDef(consoleTask, ConsoleTask, osPriorityBelowNormal, 0, 768);
