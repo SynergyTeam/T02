@@ -84,7 +84,7 @@ uint32_t flash_init(uint32_t ssiBus) {
     SPI_Params_init(&memory);													//начальные значения
     memory.frameFormat = SPI_POL1_PHA1;											//режим шины
 //    memory.bitRate = SFLASH_WIFI_CLK;											//скорость шины
-//    memory.nss = SPI_SOFT;
+    memory.nss = SPI_SOFT;
     memory.transferMode = SPI_MODE_CALLBACK;
     memory.transferCallbackFxn = flash_state_machine;
 
@@ -153,10 +153,7 @@ static uint32_t flash_size(t_FlTrans *flash) {
     else
     if (flash->cmdbuf[1] == GIGADEVICE && flash->cmdbuf[2] == GD_SUBV) {
         debuglog("Flash: Gigadevice GD25xxx series\r\n");
-        if (flash->cmdbuf[3] == 0x24) {
-            flash->cmdbuf[3] = 0x18;
-            fsize = 1;
-        }
+        fsize = 1;
     }
     else {
         debuglog("Flash: unknown vendor!\r\n");

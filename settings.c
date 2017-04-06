@@ -17,7 +17,7 @@
 //#include "power_mng.h"
 #include "archive/archive.h"
 #include "utils/data_opr.h"
-//#include "time_app.h"
+#include "utils/time_app.h"
 #include "settings.h"
 
 #define UpdateNavigationData(x, y)      UNUSED(x)
@@ -49,10 +49,10 @@ uint8_t ReadSettings(nav_solution *nSolution) {
     last_state *lgd = &LGD;
     uint32_t att;
 
-    cfg = (sys_config*)malloc(sizeof(sys_config));
+    cfg = (sys_config*)pvPortMalloc(sizeof(sys_config));
     // Инициализация заводскими настройками (без расчета CRC)
     memset(lgd, 0, sizeof(*lgd));
-//FIXME    lgd->prvSolution.time = FW_time;
+    lgd->prvSolution.time = FW_time;
     memcpy(lgd->name, lPnt_str, sizeof(lPnt_str)-1);
     // Поиск последнего сохраненного состояния
     AdrA = GetPrvPoint(lgd, GeoidAdrA);
@@ -92,7 +92,7 @@ uint8_t ReadSettings(nav_solution *nSolution) {
     else
         flash_read(tanks_ptr, FLASH_LLS_TABLE, LLS_TABLE_SIZE * MAX_LIQUID_LEVEL_SENSOR);
     memcpy(config, cfg, sizeof(*config));
-    free(cfg);
+    vPortFree(cfg);
     return (err_b);
 }
 //------------------------------------------------------------------------------
@@ -175,7 +175,7 @@ static uint32_t GetPrvPoint(last_state *lgd, uint32_t Adr) {
 	sett.start = rAdr = Adr;
 	sett.end = Adr + ST_GEOID_SIZE;
     bufSize = 0x200;
-    mBuf = malloc(bufSize);
+    mBuf = pvPortMalloc(bufSize);
 
 	for(tLen = 0, bLen = 0; tLen <= ST_GEOID_SIZE; tLen += bLen) {
         read_circ_memory(&sett, mBuf, Adr, bufSize);
@@ -211,7 +211,7 @@ static uint32_t GetPrvPoint(last_state *lgd, uint32_t Adr) {
 		Adr = nAdr;
 		wdog_Clear();
 	}
-    free(mBuf);
+	vPortFree(mBuf);
 	debuglog("Used settings from address %X\r\n", rAdr - sizeof(*lgd));
 
 	Adr = check_cln_circ_buf(&sett, rAdr);
@@ -416,12 +416,12 @@ static char ChangeSettings(sys_config *cfg) {
 void ChangeCfg(uint8_t *dest, uint8_t *src, uint16_t size) {
     sys_config *cfg;
     assert_param(dest >= (uint8_t*)config && dest < ((uint8_t*)config + sizeof(*config)));
-    cfg = (sys_config*)malloc(sizeof(sys_config));
+    cfg = (sys_config*)pvPortMalloc(sizeof(sys_config));
     dest = (uint8_t*)cfg + (dest - (uint8_t*)config);
     memcpy(cfg, config, sizeof(*config));
     memcpy(dest, src, size);
     SaveSettings(cfg, 0);
-    free(cfg);
+    vPortFree(cfg);
 }
 
 /*------------------------------------------------------------------------------

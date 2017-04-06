@@ -26,8 +26,8 @@
 #define MAX_ARCH_SIZE				(MAX_OUT_PACKET_SIZE + sizeof(ARec))
 
 //платформо-зависимые макросы
-#define GET_BUFFER                  ((char*)malloc(MAX_OUT_PACKET_SIZE))
-#define FREE_BUFFER(x)              free(x)
+#define GET_BUFFER                  ((char*)pvPortMalloc(MAX_OUT_PACKET_SIZE))
+#define FREE_BUFFER(x)              vPortFree(x)
 #define USEFUL_DATA                 MAX_OUT_PACKET_SIZE
 
 //внешнние переменные

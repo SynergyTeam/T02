@@ -90,19 +90,19 @@ uint32_t check_cln_circ_buf (circ_buf *wnd, uint32_t addr) {
 	len = (addr & ~FLASH_BLOCK_MASK) + FLASH_BLOCK_SIZE;
 	len = (len - 1) - addr;
     blen = 0x200;
-    mBuf = malloc(blen);
+    mBuf = pvPortMalloc(blen);
 	while (len > 0) {
 		if(len < blen) blen = len;
 		flash_read(mBuf, addr, blen);
 		for(cnt = 0; cnt < blen; ++cnt)
 			if(mBuf[cnt] != 0xFF) {
 				len -= cnt;
-                free(mBuf);
+                vPortFree(mBuf);
 				return (FLASH_BLOCK_MASK - len);
 			}
 		addr += blen;
 		len -= blen;
 	}
-    free(mBuf);
+    vPortFree(mBuf);
 	return (0);
 }
