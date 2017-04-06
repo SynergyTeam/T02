@@ -9,7 +9,8 @@
 #define UTILS_CONSOLE_H_
 
 #include "cmsis_os.h"
-#include "console/ustdlib.h"
+#include "console/message.h"
+#include "utils/ustdlib.h"
 
 // определения
 #define CON_INP                     (1024)
