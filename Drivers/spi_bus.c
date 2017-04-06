@@ -64,13 +64,19 @@ void HW_initSPI(uint32_t clock) {
     FLASH_CLK_ENABLE();
     FLASH_DMAx_ENABLE();
 
-    GPIO_InitStruct.Pin = FLASH_NSS_PIN | FLASH_SCK_PIN | FLASH_MISO_PIN | FLASH_MOSI_PIN;
+    GPIO_InitStruct.Pin = FLASH_NSS_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(GPIOE, FLASH_NSS_PIN, GPIO_PIN_SET);
+
+    GPIO_InitStruct.Pin = FLASH_SCK_PIN | FLASH_MISO_PIN | FLASH_MOSI_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF6_SPI5;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-
 
     // SSI3 - PRINTER
     // Peripheral clock enable

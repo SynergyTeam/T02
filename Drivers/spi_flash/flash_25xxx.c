@@ -50,6 +50,7 @@ void flash_state_machine (SPI_Handle handle, SPI_Transaction *transaction) {
     if (Flash.size == 0x0000) {
         BaseType_t h_pr_TaskWoken = pdFALSE;
         xSemaphoreGiveFromISR(object->transferComplete, &h_pr_TaskWoken);
+        portYIELD_FROM_ISR(h_pr_TaskWoken);
     }
     else {
         object->transaction = transaction;
