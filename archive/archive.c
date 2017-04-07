@@ -10,13 +10,12 @@
 #include "settings.h"
 //#include "cpu_resource/watchdog.h"
 #include "Drivers/spi_bus.h"
+#include "archive/queue_mng.h"
 #include "archive/archive.h"
 #include "utils/data_opr.h"
 #include "console/console.h"
 
 //FIXME - временная затычка
-#define QUEUE_LOCK(aN)              UNUSED(aN)
-#define QUEUE_UNLOCK(aN)            UNUSED(aN)
 #define wdog_Clear()
 #define zipPacket(mBuf, pData)      (10)
 #define unzipPacket(pData, rec)     (10)
@@ -511,14 +510,15 @@ static uint16_t get_unpckLen(uint16_t len) {
  * Подготовка строки с информацией о очереди и архиве
  */
 int32_t ArchiveTxtInfo(uint8_t anum, char *msg) {
-	archive_str *volatile str;
-	int len;
+    archive_str *volatile str;
+    int len;
 
-	str = &Archive[anum];
-	len = usprintf(msg, "\r\nARCHIVE #%d\r\nQUEUE:\r\n", 1 + anum);
-//FIXME	len += usprintf(msg + len, "PACKETS:%d\r\n", Queue[anum].size);
-	len += usprintf(msg + len, "FLASH:\r\nADR:0x%06X-0x%06X\r\n",str->memory.start,str->memory.end);
-	len += usprintf(msg + len, "USE:0x%06X-0x%06X\r\n", str->bData, str->lData);
-	len += usprintf(msg + len, "PACKETS:%d\r\n", str->packets);
-	return len;
+    str = &Archive[anum];
+    len = usprintf(msg, "\r\nARCHIVE #%d\r\nQUEUE:\r\n", 1 + anum);
+    len += usprintf(msg + len, "PACKETS:%d\r\n", Queue[anum].size);
+    len += usprintf(msg + len, "FLASH:\r\nADR:0x%06X-0x%06X\r\n",str->memory.start,str->memory.end);
+    len += usprintf(msg + len, "USE:0x%06X-0x%06X\r\n", str->bData, str->lData);
+    len += usprintf(msg + len, "PACKETS:%d\r\n", str->packets);
+    return len;
 }
+

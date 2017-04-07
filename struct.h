@@ -149,15 +149,15 @@ typedef struct {
 //структура конфигурационных параметров
 typedef struct {
     uint16_t id_len;
-    char        id[16];
-    sim_data    sim_cadr[SIM_HOLDERS];
-    char        M_sms_center[14];
-    char        M_cmd_number[14];
-    server_data server[MAX_ARCHIVES];
-    uint16_t    server_events[MAX_ARCHIVES];
-    uint8_t     STR_percent[MAX_ARCHIVES];
-    unsigned    COM_channel_gsm:MAX_ARCHIVES;
-    uint16_t    version;
+    char        id[16];                                         //номер терминала (модема)
+    sim_data    sim_cadr[SIM_HOLDERS];                          //параметры SIM карты
+    char        M_sms_center[14];                               //номер SMS центра
+    char        M_cmd_number[14];                               //разрешенный номер SMS управления
+    server_data server[MAX_ARCHIVES];                           //рабочий сервер
+    uint16_t    server_events[MAX_ARCHIVES];                    //события, передаваемые на сервер
+    uint8_t     STR_percent[MAX_ARCHIVES];                      //распределение памяти по серверам
+    uint8_t     COM_channel_gsm;                                //битовая маска GSM каналов связи
+    uint16_t    version;                                        //текущая версия софта
     uint16_t id_crc;
 
     uint16_t bd_len;

@@ -15,4 +15,14 @@ extern const char msg_BuildDate[];
 
 extern const char msg_BadSettings[];
 
+extern const char msg_PutPacket[];
+extern const char msg_DelPacket[];
+
+extern const char msg_SavePacket[];
+extern const char msg_DelArchPacket[];
+extern const char msg_LostPacket[];
+extern const char msg_ArchivePkts[];
+extern const char msg_ArchOverflow[];
+extern const char msg_ArchiveNotDefined[];
+
 #endif /* CONSOLE_MESSAGE_H_ */
