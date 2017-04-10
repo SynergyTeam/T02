@@ -2,17 +2,18 @@
 
 void Gost28147_encode(uint8_t* blockin, uint8_t* blockout, uint32_t* Key, uint8_t** SubTable)
 {
-	// Задаем ключ шифрования и таблицу замен
+	uint8_t first_uint8_t, second_uint8_t, zam_symbol, n;
+	int8_t q;
 
-	unsigned long n1 = 0, n2 = 0, SUM232 = 0; // накопители N1, N2, и сумматор
+	uint32_t n1 = 0, n2 = 0, SUM232 = 0; // накопители N1, N2, и сумматор
 
-	n1 = *((unsigned long *)&blockin[0]);
-	n2 = *((unsigned long *)&blockin[4]);
+	n1 = *((uint32_t *)&blockin[0]);
+	n2 = *((uint32_t *)&blockin[4]);
 
 	// 32 цикла простой замены
 	// ключ считываем в требуемом ГОСТом порядке
-	int c = 0;
-	for (int k = 0; k<32; k++)
+	int8_t c = 0;
+	for (uint8_t k = 0; k<32; k++)
 	{
 		if (k == 24)	
 			c = 7;
@@ -21,9 +22,9 @@ void Gost28147_encode(uint8_t* blockin, uint8_t* blockout, uint32_t* Key, uint8_
 		SUM232 = Key[c] + n1;
 
 		// заменяем по таблице замен
-		uint8_t first_uint8_t = 0, second_uint8_t = 0, zam_symbol = 0;
-		int n = 7;
-		for (int q = 3; q >= 0; q--)
+		first_uint8_t = 0, second_uint8_t = 0, zam_symbol = 0;
+		n = 7;
+		for (q = 3; q >= 0; q--)
 		{
 			zam_symbol = *((uint8_t *)&SUM232 + q);
 			first_uint8_t = (zam_symbol & 0xF0) >> 4;
@@ -59,27 +60,28 @@ void Gost28147_encode(uint8_t* blockin, uint8_t* blockout, uint32_t* Key, uint8_
 	n2 = SUM232;
 
 	// записываем результат
-	int ind = 0;
-	for (int q = 0; q <= 3; q++)
+	uint8_t ind = 0;
+	for (q = 0; q <= 3; q++)
 		blockout[ind++] = *((uint8_t *)&n1 + q);
 
-	for (int q = 0; q <= 3; q++)
+	for (q = 0; q <= 3; q++)
 		blockout[ind++] = *((uint8_t *)&n2 + q);
 }
 
 void Gost28147_decode(uint8_t* blockin, uint8_t* blockout, uint32_t* Key, uint8_t** SubTable)
 {
-	///< Задаем ключ шифрования и таблицу замен
+	uint8_t first_uint8_t, second_uint8_t, zam_symbol, n;
+	int8_t q;
 
-	unsigned long n1 = 0, n2 = 0, SUM232 = 0; // накопители N1, N2, и сумматор
+	uint32_t n1 = 0, n2 = 0, SUM232 = 0; // накопители N1, N2, и сумматор
 
-	n1 = *((unsigned long *)&blockin[0]);
-	n2 = *((unsigned long *)&blockin[4]);
+	n1 = *((uint32_t *)&blockin[0]);
+	n2 = *((uint32_t *)&blockin[4]);
 
 	// 32 цикла простой замены
 	// ключ считываем в требуемом ГОСТом порядке
-	int c = 0;
-	for (int k = 0; k<32; k++)
+	int8_t c = 0;
+	for (uint8_t k = 0; k<32; k++)
 	{
 		if (k == 8) c = 7;
 
@@ -87,9 +89,9 @@ void Gost28147_decode(uint8_t* blockin, uint8_t* blockout, uint32_t* Key, uint8_
 		SUM232 = Key[c] + n1;
 
 		// заменяем по таблице замен
-		uint8_t first_uint8_t = 0, second_uint8_t = 0, zam_symbol = 0;
-		int n = 7;
-		for (int q = 3; q >= 0; q--)
+		first_uint8_t = 0, second_uint8_t = 0, zam_symbol = 0;
+		n = 7;
+		for (q = 3; q >= 0; q--)
 		{
 			zam_symbol = *((uint8_t *)&SUM232 + q);
 			first_uint8_t = (zam_symbol & 0xF0) >> 4;
@@ -125,10 +127,10 @@ void Gost28147_decode(uint8_t* blockin, uint8_t* blockout, uint32_t* Key, uint8_
 	n2 = SUM232;
 
 	// записываем результат
-	int ind = 0;
-	for (int q = 0; q <= 3; q++)
+	uint8_t ind = 0;
+	for (q = 0; q <= 3; q++)
 		blockout[ind++] = *((uint8_t *)&n1 + q);
 
-	for (int q = 0; q <= 3; q++)
+	for (q = 0; q <= 3; q++)
 		blockout[ind++] = *((uint8_t *)&n2 + q);
 }

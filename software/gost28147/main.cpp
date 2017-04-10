@@ -15,6 +15,25 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
+	uint32_t* Key = (uint32_t*)malloc(8 * sizeof(uint32_t));
+	Key[0] = 0x0123;
+	Key[1] = 0x4567;
+	Key[2] = 0x89AB;
+	Key[3] = 0xCDEF;
+	Key[4] = 0x0123;
+	Key[5] = 0x4567;
+	Key[6] = 0x89AB;
+	Key[7] = 0xCDEF;
+
+	uint8_t** SubTable;
+	SubTable = (uint8_t**)malloc(8 * sizeof(uint8_t*));
+	for (int i = 0; i < 8; i++)
+	{
+		SubTable[i] = (uint8_t*)malloc(16 * sizeof(uint8_t));
+		for (int j = 0; j < 16; j++)
+			SubTable[i][j] = j;
+	}
+
 	// режим, 1 - зашифрование, 2 - расшифрование
 	int mode;
 	sscanf(argv[1], "%d", &mode);
@@ -77,25 +96,6 @@ int main(int argc, char** argv)
 				sh = inputsize - sh1;
 				fread(&blockin[4], sh, 1, f_in);
 			}
-		}
-
-		uint32_t* Key = (uint32_t*)malloc(8 * sizeof(uint32_t));
-		Key[0] = 0x0123;
-		Key[1] = 0x4567;
-		Key[2] = 0x89AB;
-		Key[3] = 0xCDEF;
-		Key[4] = 0x0123;
-		Key[5] = 0x4567;
-		Key[6] = 0x89AB;
-		Key[7] = 0xCDEF;
-
-		uint8_t** SubTable;
-		SubTable = (uint8_t**)malloc(8 * sizeof(uint8_t*));
-		for (int i = 0; i < 8; i++)
-		{
-			SubTable[i] = (uint8_t*)malloc(16 * sizeof(uint8_t));
-			for (int j = 0; j < 16; j++)
-				SubTable[i][j] = j;
 		}
 
 		if (mode == 1)
